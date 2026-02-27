@@ -34,7 +34,7 @@ from .coordinator import MadvrEnvyCoordinator
 from .models import MadvrEnvyRuntimeData
 from .services import async_setup_services, async_unload_services
 
-MadvrEnvyConfigEntry = ConfigEntry[MadvrEnvyRuntimeData]
+MadvrEnvyConfigEntry = ConfigEntry
 
 
 async def async_setup_entry(hass: HomeAssistant, entry: MadvrEnvyConfigEntry) -> bool:

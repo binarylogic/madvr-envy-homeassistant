@@ -38,7 +38,10 @@ async def async_setup_entry(
     async_add_entities: AddEntitiesCallback,
 ) -> None:
     async_add_entities(
-        [MadvrEnvyBinarySensor(entry.runtime_data.coordinator, description) for description in BINARY_SENSORS]
+        [
+            MadvrEnvyBinarySensor(entry.runtime_data.coordinator, description)
+            for description in BINARY_SENSORS
+        ]
     )
 
 

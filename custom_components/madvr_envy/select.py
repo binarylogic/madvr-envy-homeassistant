@@ -28,7 +28,10 @@ async def async_setup_entry(
     async_add_entities: AddEntitiesCallback,
 ) -> None:
     coordinator = entry.runtime_data.coordinator
-    entities: list[MadvrEnvyEntity] = [MadvrEnvyPowerModeSelect(coordinator), MadvrEnvyActiveProfileSelect(coordinator)]
+    entities: list[MadvrEnvyEntity] = [
+        MadvrEnvyPowerModeSelect(coordinator),
+        MadvrEnvyActiveProfileSelect(coordinator),
+    ]
 
     profile_groups = coordinator.data.get("profile_groups", {}) if coordinator.data else {}
     if isinstance(profile_groups, dict):
@@ -98,8 +101,8 @@ class MadvrEnvyActiveProfileSelect(MadvrEnvyEntity, SelectEntity):
             if entry.option == option:
                 await self._execute(
                     f"ActivateProfile {entry.group_id}/{entry.profile_index}",
-                    lambda group_id=entry.group_id, profile_index=entry.profile_index: self._client.activate_profile(
-                        group_id, profile_index
+                    lambda group_id=entry.group_id, profile_index=entry.profile_index: (
+                        self._client.activate_profile(group_id, profile_index)
                     ),
                 )
                 return
@@ -150,7 +153,9 @@ class MadvrEnvyProfileGroupSelect(MadvrEnvyEntity, SelectEntity):
                 continue
             await self._execute(
                 f"ActivateProfile {self._group_id}/{entry.profile_index}",
-                lambda profile_index=entry.profile_index: self._client.activate_profile(self._group_id, profile_index),
+                lambda profile_index=entry.profile_index: self._client.activate_profile(
+                    self._group_id, profile_index
+                ),
             )
             return
 

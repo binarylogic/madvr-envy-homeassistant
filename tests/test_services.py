@@ -17,10 +17,13 @@ async def test_services_dispatch_commands(hass, mock_config_entry, mock_envy_cli
     """Test registered services call through to client commands."""
     mock_config_entry.add_to_hass(hass)
 
-    with patch("custom_components.madvr_envy.MadvrEnvyClient", return_value=mock_envy_client), patch.object(
-        hass.config_entries,
-        "async_forward_entry_setups",
-        AsyncMock(return_value=True),
+    with (
+        patch("custom_components.madvr_envy.MadvrEnvyClient", return_value=mock_envy_client),
+        patch.object(
+            hass.config_entries,
+            "async_forward_entry_setups",
+            AsyncMock(return_value=True),
+        ),
     ):
         assert await hass.config_entries.async_setup(mock_config_entry.entry_id)
         await hass.async_block_till_done()

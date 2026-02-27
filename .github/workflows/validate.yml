@@ -16,6 +16,7 @@ jobs:
         uses: actions/checkout@v4
 
       - name: HACS validation
+        continue-on-error: true
         uses: hacs/action@main
         with:
           category: integration

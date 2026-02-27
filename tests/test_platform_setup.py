@@ -17,8 +17,14 @@ async def test_platform_setup_entity_counts(hass, mock_envy_client):
     coordinator = MadvrEnvyCoordinator(hass, mock_envy_client)
     await coordinator.async_start()
 
-    basic_entry = SimpleNamespace(runtime_data=SimpleNamespace(coordinator=coordinator), options={"enable_advanced_entities": False})
-    full_entry = SimpleNamespace(runtime_data=SimpleNamespace(coordinator=coordinator), options={"enable_advanced_entities": True})
+    basic_entry = SimpleNamespace(
+        runtime_data=SimpleNamespace(coordinator=coordinator),
+        options={"enable_advanced_entities": False},
+    )
+    full_entry = SimpleNamespace(
+        runtime_data=SimpleNamespace(coordinator=coordinator),
+        options={"enable_advanced_entities": True},
+    )
 
     added_basic: list[object] = []
     added_full: list[object] = []
@@ -59,15 +65,21 @@ def test_temperature_value_helper_branches():
     assert sensor._temperature_value({"temperatures": (1,)}, 1) is None
     assert sensor._temperature_value({"temperatures": ("x",)}, 0) is None
     assert sensor._active_profile_value({}) is None
-    assert sensor._active_profile_value({"active_profile_group": "1", "active_profile_index": 2}) == "1: 2"
-    assert sensor._active_profile_value(
-        {
-            "active_profile_group": "1",
-            "active_profile_index": 2,
-            "profile_groups": {"1": "Cinema"},
-            "profiles": {"1_2": "Night"},
-        }
-    ) == "Cinema: Night"
+    assert (
+        sensor._active_profile_value({"active_profile_group": "1", "active_profile_index": 2})
+        == "1: 2"
+    )
+    assert (
+        sensor._active_profile_value(
+            {
+                "active_profile_group": "1",
+                "active_profile_index": 2,
+                "profile_groups": {"1": "Cinema"},
+                "profiles": {"1_2": "Night"},
+            }
+        )
+        == "Cinema: Night"
+    )
 
 
 def test_select_profile_id_parsing_branches():

@@ -88,7 +88,9 @@ def mock_envy_client() -> MagicMock:
     client.activate_profile = AsyncMock()
     client.get_mac_address = AsyncMock()
     client.get_temperatures = AsyncMock()
-    client.enum_profile_groups_collect = AsyncMock(return_value=[MagicMock(group_id="1", name="Cinema")])
+    client.enum_profile_groups_collect = AsyncMock(
+        return_value=[MagicMock(group_id="1", name="Cinema")]
+    )
     client.enum_profiles_collect = AsyncMock(return_value=[MagicMock(profile_id="1_1", name="Day")])
 
     client._test_callbacks = callback_handles

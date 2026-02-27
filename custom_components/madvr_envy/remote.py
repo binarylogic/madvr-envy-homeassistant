@@ -47,7 +47,9 @@ class MadvrEnvyRemote(MadvrEnvyEntity, RemoteEntity):
             if key.startswith("action:"):
                 await self._run_action(key.split(":", 1)[1])
             else:
-                await self._execute(f"KeyPress {key}", lambda button=key: self._client.key_press(button))
+                await self._execute(
+                    f"KeyPress {key}", lambda button=key: self._client.key_press(button)
+                )
 
     async def _run_action(self, action: str) -> None:
         action_name = action.strip().lower()

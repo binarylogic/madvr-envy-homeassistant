@@ -94,7 +94,10 @@ async def async_setup_entry(
     entities: list[MadvrEnvySensor] = []
 
     for description in SENSORS:
-        if description.key in {"version", "current_menu", "aspect_ratio_mode"} and not enable_advanced:
+        if (
+            description.key in {"version", "current_menu", "aspect_ratio_mode"}
+            and not enable_advanced
+        ):
             continue
         entities.append(MadvrEnvySensor(entry.runtime_data.coordinator, description))
 

@@ -20,8 +20,12 @@ async def test_sensor_values(hass, mock_envy_client):
     coordinator = MadvrEnvyCoordinator(hass, mock_envy_client)
     await coordinator.async_start()
 
-    power_sensor = MadvrEnvySensor(coordinator, next(item for item in SENSORS if item.key == "power_state"))
-    gpu_sensor = MadvrEnvySensor(coordinator, next(item for item in SENSORS if item.key == "gpu_temperature"))
+    power_sensor = MadvrEnvySensor(
+        coordinator, next(item for item in SENSORS if item.key == "power_state")
+    )
+    gpu_sensor = MadvrEnvySensor(
+        coordinator, next(item for item in SENSORS if item.key == "gpu_temperature")
+    )
 
     assert power_sensor.native_value == "on"
     assert gpu_sensor.native_value == 41

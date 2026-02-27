@@ -101,11 +101,14 @@ async def test_reauth_flow_success(hass, mock_config_entry):
     client.stop = AsyncMock()
     client.state = SimpleNamespace(mac_address="00:11:22:33:44:55")
 
-    with patch("custom_components.madvr_envy.config_flow.MadvrEnvyClient", return_value=client), patch.object(
-        hass.config_entries,
-        "async_reload",
-        AsyncMock(),
-    ) as mock_reload:
+    with (
+        patch("custom_components.madvr_envy.config_flow.MadvrEnvyClient", return_value=client),
+        patch.object(
+            hass.config_entries,
+            "async_reload",
+            AsyncMock(),
+        ) as mock_reload,
+    ):
         result = await hass.config_entries.flow.async_init(
             DOMAIN,
             context={"source": SOURCE_REAUTH, "entry_id": mock_config_entry.entry_id},

@@ -39,7 +39,9 @@ _LOGGER = logging.getLogger(__name__)
 STEP_USER_DATA_SCHEMA = vol.Schema(
     {
         vol.Required(CONF_HOST): str,
-        vol.Required(CONF_PORT, default=DEFAULT_PORT): vol.All(vol.Coerce(int), vol.Range(min=1, max=65535)),
+        vol.Required(CONF_PORT, default=DEFAULT_PORT): vol.All(
+            vol.Coerce(int), vol.Range(min=1, max=65535)
+        ),
     }
 )
 
@@ -69,14 +71,18 @@ class MadvrEnvyConfigFlow(ConfigFlow, domain=DOMAIN):
                     data={CONF_HOST: host, CONF_PORT: port},
                 )
 
-        return self.async_show_form(step_id="user", data_schema=STEP_USER_DATA_SCHEMA, errors=errors)
+        return self.async_show_form(
+            step_id="user", data_schema=STEP_USER_DATA_SCHEMA, errors=errors
+        )
 
     async def async_step_reauth(self, entry_data: dict[str, Any]) -> ConfigFlowResult:
         """Handle reauth flow."""
         self._reauth_entry = self.hass.config_entries.async_get_entry(self.context["entry_id"])
         return await self.async_step_reauth_confirm(entry_data)
 
-    async def async_step_reauth_confirm(self, user_input: dict[str, Any] | None = None) -> ConfigFlowResult:
+    async def async_step_reauth_confirm(
+        self, user_input: dict[str, Any] | None = None
+    ) -> ConfigFlowResult:
         errors: dict[str, str] = {}
 
         if self._reauth_entry is None:
@@ -101,7 +107,9 @@ class MadvrEnvyConfigFlow(ConfigFlow, domain=DOMAIN):
             step_id="reauth_confirm",
             data_schema=vol.Schema(
                 {
-                    vol.Required(CONF_HOST, default=self._reauth_entry.data.get(CONF_HOST, "")): str,
+                    vol.Required(
+                        CONF_HOST, default=self._reauth_entry.data.get(CONF_HOST, "")
+                    ): str,
                     vol.Required(
                         CONF_PORT,
                         default=self._reauth_entry.data.get(CONF_PORT, DEFAULT_PORT),

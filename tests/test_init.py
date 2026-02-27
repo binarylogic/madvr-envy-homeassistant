@@ -18,15 +18,19 @@ async def test_setup_and_unload_entry(hass, mock_config_entry, mock_envy_client)
     """Test setup and unload lifecycle."""
     mock_config_entry.add_to_hass(hass)
 
-    with patch("custom_components.madvr_envy.MadvrEnvyClient", return_value=mock_envy_client), patch.object(
-        hass.config_entries,
-        "async_forward_entry_setups",
-        AsyncMock(return_value=True),
-    ) as mock_forward, patch.object(
-        hass.config_entries,
-        "async_unload_platforms",
-        AsyncMock(return_value=True),
-    ) as mock_unload:
+    with (
+        patch("custom_components.madvr_envy.MadvrEnvyClient", return_value=mock_envy_client),
+        patch.object(
+            hass.config_entries,
+            "async_forward_entry_setups",
+            AsyncMock(return_value=True),
+        ) as mock_forward,
+        patch.object(
+            hass.config_entries,
+            "async_unload_platforms",
+            AsyncMock(return_value=True),
+        ) as mock_unload,
+    ):
         assert await hass.config_entries.async_setup(mock_config_entry.entry_id)
         await hass.async_block_till_done()
 
@@ -59,10 +63,13 @@ async def test_setup_entry_not_ready_on_sync_timeout(hass, mock_config_entry, mo
     mock_envy_client.wait_synced.side_effect = TimeoutError
     mock_config_entry.add_to_hass(hass)
 
-    with patch("custom_components.madvr_envy.MadvrEnvyClient", return_value=mock_envy_client), patch.object(
-        hass.config_entries,
-        "async_forward_entry_setups",
-        AsyncMock(return_value=True),
+    with (
+        patch("custom_components.madvr_envy.MadvrEnvyClient", return_value=mock_envy_client),
+        patch.object(
+            hass.config_entries,
+            "async_forward_entry_setups",
+            AsyncMock(return_value=True),
+        ),
     ):
         assert not await hass.config_entries.async_setup(mock_config_entry.entry_id)
         await hass.async_block_till_done()
@@ -91,10 +98,15 @@ async def test_setup_entry_uses_options_for_timeouts(hass, mock_envy_client):
     )
     entry.add_to_hass(hass)
 
-    with patch("custom_components.madvr_envy.MadvrEnvyClient", return_value=mock_envy_client) as mock_client_class, patch.object(
-        hass.config_entries,
-        "async_forward_entry_setups",
-        AsyncMock(return_value=True),
+    with (
+        patch(
+            "custom_components.madvr_envy.MadvrEnvyClient", return_value=mock_envy_client
+        ) as mock_client_class,
+        patch.object(
+            hass.config_entries,
+            "async_forward_entry_setups",
+            AsyncMock(return_value=True),
+        ),
     ):
         assert await hass.config_entries.async_setup(entry.entry_id)
         await hass.async_block_till_done()
