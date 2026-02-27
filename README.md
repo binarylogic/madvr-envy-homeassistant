@@ -2,6 +2,14 @@
 
 Home Assistant custom integration for madVR Envy video processors, powered by [`madvr-envy`](https://github.com/binarylogic/py-madvr-envy).
 
+## Source of Truth and Core Sync
+
+This repository is the canonical implementation for the HACS integration.
+
+When syncing to Home Assistant Core (`madvr` domain), we keep a compatibility layer so existing users are not broken by entity/service contract changes.
+
+Sync and compatibility details: [`SYNC_NOTES.md`](SYNC_NOTES.md)
+
 ## Prerequisites
 
 1. Home Assistant with [HACS](https://hacs.xyz) installed
