@@ -65,6 +65,15 @@
       },
       "version": {
         "name": "Version"
+      },
+      "current_menu": {
+        "name": "Current Menu"
+      },
+      "aspect_ratio_mode": {
+        "name": "Aspect Ratio Mode"
+      },
+      "active_profile": {
+        "name": "Active Profile"
       }
     },
     "binary_sensor": {
@@ -78,6 +87,9 @@
       }
     },
     "button": {
+      "power_on": {
+        "name": "Power On"
+      },
       "standby": {
         "name": "Standby"
       },
@@ -98,11 +110,25 @@
       },
       "remote_info": {
         "name": "Remote Info"
+      },
+      "remote_ok": {
+        "name": "Remote OK"
+      },
+      "remote_back": {
+        "name": "Remote Back"
       }
     },
     "select": {
+      "power_mode": {
+        "name": "Power Mode"
+      },
       "active_profile": {
         "name": "Active Profile"
+      }
+    },
+    "remote": {
+      "remote": {
+        "name": "Remote"
       }
     }
   }

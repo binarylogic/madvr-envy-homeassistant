@@ -21,6 +21,12 @@ class MadvrEnvyButtonDescription(ButtonEntityDescription):
 
 BUTTONS: tuple[MadvrEnvyButtonDescription, ...] = (
     MadvrEnvyButtonDescription(
+        key="power_on",
+        translation_key="power_on",
+        icon="mdi:power-on",
+        press_fn=lambda entity: entity._execute("KeyPress POWER", lambda: entity._client.key_press("POWER")),
+    ),
+    MadvrEnvyButtonDescription(
         key="standby",
         translation_key="standby",
         icon="mdi:sleep",
@@ -61,6 +67,18 @@ BUTTONS: tuple[MadvrEnvyButtonDescription, ...] = (
         translation_key="remote_info",
         icon="mdi:information",
         press_fn=lambda entity: entity._execute("KeyPress INFO", lambda: entity._client.key_press("INFO")),
+    ),
+    MadvrEnvyButtonDescription(
+        key="remote_ok",
+        translation_key="remote_ok",
+        icon="mdi:check-circle-outline",
+        press_fn=lambda entity: entity._execute("KeyPress OK", lambda: entity._client.key_press("OK")),
+    ),
+    MadvrEnvyButtonDescription(
+        key="remote_back",
+        translation_key="remote_back",
+        icon="mdi:arrow-left-circle-outline",
+        press_fn=lambda entity: entity._execute("KeyPress BACK", lambda: entity._client.key_press("BACK")),
     ),
 )
 

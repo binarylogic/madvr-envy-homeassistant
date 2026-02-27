@@ -27,7 +27,45 @@ async def async_setup_entry(
     entry: ConfigEntry,
     async_add_entities: AddEntitiesCallback,
 ) -> None:
-    async_add_entities([MadvrEnvyActiveProfileSelect(entry.runtime_data.coordinator)])
+    coordinator = entry.runtime_data.coordinator
+    entities: list[MadvrEnvyEntity] = [MadvrEnvyPowerModeSelect(coordinator), MadvrEnvyActiveProfileSelect(coordinator)]
+
+    profile_groups = coordinator.data.get("profile_groups", {}) if coordinator.data else {}
+    if isinstance(profile_groups, dict):
+        for group_id in profile_groups:
+            if not isinstance(group_id, str):
+                continue
+            entities.append(MadvrEnvyProfileGroupSelect(coordinator, group_id))
+
+    async_add_entities(entities)
+
+
+class MadvrEnvyPowerModeSelect(MadvrEnvyEntity, SelectEntity):
+    """Select target power mode."""
+
+    _attr_translation_key = "power_mode"
+    _attr_icon = "mdi:power-settings"
+    _attr_options = ["on", "standby", "off"]
+
+    def __init__(self, coordinator) -> None:  # noqa: ANN001
+        super().__init__(coordinator, "power_mode")
+
+    @property
+    def current_option(self) -> str | None:
+        power_state = self.data.get("power_state")
+        if isinstance(power_state, str) and power_state in self.options:
+            return power_state
+        return None
+
+    async def async_select_option(self, option: str) -> None:
+        if option == "on":
+            await self._execute("KeyPress POWER", lambda: self._client.key_press("POWER"))
+            return
+        if option == "standby":
+            await self._execute("Standby", self._client.standby)
+            return
+        if option == "off":
+            await self._execute("PowerOff", self._client.power_off)
 
 
 class MadvrEnvyActiveProfileSelect(MadvrEnvyEntity, SelectEntity):
@@ -68,35 +106,58 @@ class MadvrEnvyActiveProfileSelect(MadvrEnvyEntity, SelectEntity):
 
     @property
     def _profile_options(self) -> list[ProfileOption]:
+        return _build_profile_options(self.data)
+
+
+class MadvrEnvyProfileGroupSelect(MadvrEnvyEntity, SelectEntity):
+    """Select active profile for a specific profile group."""
+
+    _attr_icon = "mdi:playlist-edit"
+
+    def __init__(self, coordinator, group_id: str) -> None:  # noqa: ANN001
+        self._group_id = group_id
+        super().__init__(coordinator, f"profile_group_{group_id}")
+
+    @property
+    def name(self) -> str:
         group_names = self.data.get("profile_groups")
+        label = self._group_id
         if not isinstance(group_names, dict):
-            group_names = {}
+            return f"{label} Profile"
+        value = group_names.get(self._group_id)
+        if isinstance(value, str) and value:
+            label = value
+        return f"{label} Profile"
 
-        profiles = self.data.get("profiles")
-        if not isinstance(profiles, dict):
-            return []
+    @property
+    def options(self) -> list[str]:
+        return [entry.option for entry in self._group_options]
 
-        options: list[ProfileOption] = []
-        for profile_id, profile_name in profiles.items():
-            if not isinstance(profile_id, str) or not isinstance(profile_name, str):
+    @property
+    def current_option(self) -> str | None:
+        active_group = self.data.get("active_profile_group")
+        active_index = self.data.get("active_profile_index")
+        if active_group != self._group_id or not isinstance(active_index, int):
+            return None
+        for entry in self._group_options:
+            if entry.profile_index == active_index:
+                return entry.option
+        return None
+
+    async def async_select_option(self, option: str) -> None:
+        for entry in self._group_options:
+            if entry.option != option:
                 continue
-
-            parsed = _parse_profile_id(profile_id, self.data.get("active_profile_group"))
-            if parsed is None:
-                continue
-            group_id, index = parsed
-
-            group_label = group_names.get(group_id, group_id)
-            options.append(
-                ProfileOption(
-                    option=f"{group_label}: {profile_name}",
-                    group_id=group_id,
-                    profile_index=index,
-                )
+            await self._execute(
+                f"ActivateProfile {self._group_id}/{entry.profile_index}",
+                lambda profile_index=entry.profile_index: self._client.activate_profile(self._group_id, profile_index),
             )
+            return
 
-        options.sort(key=lambda option: option.option.casefold())
-        return options
+    @property
+    def _group_options(self) -> list[ProfileOption]:
+        all_options = _build_profile_options(self.data)
+        return [entry for entry in all_options if entry.group_id == self._group_id]
 
 
 def _parse_profile_id(profile_id: str, fallback_group: object) -> tuple[str, int] | None:
@@ -108,3 +169,35 @@ def _parse_profile_id(profile_id: str, fallback_group: object) -> tuple[str, int
         return fallback_group, int(profile_id)
 
     return None
+
+
+def _build_profile_options(data: dict[str, object]) -> list[ProfileOption]:
+    group_names = data.get("profile_groups")
+    if not isinstance(group_names, dict):
+        group_names = {}
+
+    profiles = data.get("profiles")
+    if not isinstance(profiles, dict):
+        return []
+
+    options: list[ProfileOption] = []
+    for profile_id, profile_name in profiles.items():
+        if not isinstance(profile_id, str) or not isinstance(profile_name, str):
+            continue
+
+        parsed = _parse_profile_id(profile_id, data.get("active_profile_group"))
+        if parsed is None:
+            continue
+        group_id, index = parsed
+
+        group_label = group_names.get(group_id, group_id)
+        options.append(
+            ProfileOption(
+                option=f"{group_label}: {profile_name}",
+                group_id=group_id,
+                profile_index=index,
+            )
+        )
+
+    options.sort(key=lambda option: option.option.casefold())
+    return options

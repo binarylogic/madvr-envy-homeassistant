@@ -6,7 +6,12 @@ from unittest.mock import AsyncMock, patch
 
 from homeassistant.const import CONF_HOST, CONF_PORT
 
-from custom_components.madvr_envy.const import DOMAIN
+from custom_components.madvr_envy.const import (
+    DOMAIN,
+    SERVICE_ACTIVATE_PROFILE,
+    SERVICE_PRESS_KEY,
+    SERVICE_RUN_ACTION,
+)
 
 
 async def test_setup_and_unload_entry(hass, mock_config_entry, mock_envy_client):
@@ -29,12 +34,21 @@ async def test_setup_and_unload_entry(hass, mock_config_entry, mock_envy_client)
         assert runtime_data.client is mock_envy_client
         assert runtime_data.coordinator.data is not None
         assert runtime_data.coordinator.data["power_state"] == "on"
+        assert DOMAIN in hass.data
+        assert mock_config_entry.entry_id in hass.data[DOMAIN]
+        assert hass.services.has_service(DOMAIN, SERVICE_PRESS_KEY)
+        assert hass.services.has_service(DOMAIN, SERVICE_ACTIVATE_PROFILE)
+        assert hass.services.has_service(DOMAIN, SERVICE_RUN_ACTION)
 
         mock_forward.assert_awaited_once()
 
         assert await hass.config_entries.async_unload(mock_config_entry.entry_id)
         await hass.async_block_till_done()
         mock_unload.assert_awaited_once()
+        assert DOMAIN not in hass.data
+        assert not hass.services.has_service(DOMAIN, SERVICE_PRESS_KEY)
+        assert not hass.services.has_service(DOMAIN, SERVICE_ACTIVATE_PROFILE)
+        assert not hass.services.has_service(DOMAIN, SERVICE_RUN_ACTION)
 
     mock_envy_client.start.assert_called_once()
     assert mock_envy_client.stop.await_count >= 1

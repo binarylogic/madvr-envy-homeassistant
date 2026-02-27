@@ -62,6 +62,26 @@ SENSORS: tuple[MadvrEnvySensorDescription, ...] = (
         entity_registry_enabled_default=False,
         value_fn=lambda data: data.get("version"),
     ),
+    MadvrEnvySensorDescription(
+        key="current_menu",
+        translation_key="current_menu",
+        icon="mdi:menu",
+        entity_registry_enabled_default=False,
+        value_fn=lambda data: data.get("current_menu"),
+    ),
+    MadvrEnvySensorDescription(
+        key="aspect_ratio_mode",
+        translation_key="aspect_ratio_mode",
+        icon="mdi:aspect-ratio",
+        entity_registry_enabled_default=False,
+        value_fn=lambda data: data.get("aspect_ratio_mode"),
+    ),
+    MadvrEnvySensorDescription(
+        key="active_profile",
+        translation_key="active_profile",
+        icon="mdi:playlist-play",
+        value_fn=lambda data: _active_profile_value(data),
+    ),
 )
 
 
@@ -74,7 +94,7 @@ async def async_setup_entry(
     entities: list[MadvrEnvySensor] = []
 
     for description in SENSORS:
-        if description.key == "version" and not enable_advanced:
+        if description.key in {"version", "current_menu", "aspect_ratio_mode"} and not enable_advanced:
             continue
         entities.append(MadvrEnvySensor(entry.runtime_data.coordinator, description))
 
@@ -106,3 +126,29 @@ def _temperature_value(data: dict[str, Any], index: int) -> int | None:
     if isinstance(value, int):
         return value
     return None
+
+
+def _active_profile_value(data: dict[str, Any]) -> str | None:
+    group = data.get("active_profile_group")
+    index = data.get("active_profile_index")
+    if not isinstance(group, str) or not isinstance(index, int):
+        return None
+
+    groups = data.get("profile_groups")
+    group_name = group
+    if isinstance(groups, dict):
+        value = groups.get(group)
+        if isinstance(value, str) and value:
+            group_name = value
+
+    profiles = data.get("profiles")
+    profile_name = str(index)
+    if isinstance(profiles, dict):
+        key = f"{group}_{index}"
+        value = profiles.get(key)
+        if not isinstance(value, str):
+            value = profiles.get(str(index))
+        if isinstance(value, str) and value:
+            profile_name = value
+
+    return f"{group_name}: {profile_name}"

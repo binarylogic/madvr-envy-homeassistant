@@ -7,7 +7,7 @@ from types import SimpleNamespace
 import pytest
 from homeassistant.exceptions import HomeAssistantError
 
-from custom_components.madvr_envy import binary_sensor, button, select, sensor, switch
+from custom_components.madvr_envy import binary_sensor, button, remote, select, sensor, switch
 from custom_components.madvr_envy.coordinator import MadvrEnvyCoordinator
 from custom_components.madvr_envy.entity import MadvrEnvyEntity
 
@@ -25,7 +25,7 @@ async def test_platform_setup_entity_counts(hass, mock_envy_client):
 
     await sensor.async_setup_entry(hass, basic_entry, added_basic.extend)
     await sensor.async_setup_entry(hass, full_entry, added_full.extend)
-    assert len(added_basic) == len(sensor.SENSORS) - 1
+    assert len(added_basic) == len(sensor.SENSORS) - 3
     assert len(added_full) == len(sensor.SENSORS)
 
     added_buttons_basic: list[object] = []
@@ -44,7 +44,11 @@ async def test_platform_setup_entity_counts(hass, mock_envy_client):
 
     added_select: list[object] = []
     await select.async_setup_entry(hass, full_entry, added_select.extend)
-    assert len(added_select) == 1
+    assert len(added_select) >= 2
+
+    added_remote: list[object] = []
+    await remote.async_setup_entry(hass, full_entry, added_remote.extend)
+    assert len(added_remote) == 1
 
     await coordinator.async_shutdown()
 
@@ -54,6 +58,16 @@ def test_temperature_value_helper_branches():
     assert sensor._temperature_value({}, 0) is None
     assert sensor._temperature_value({"temperatures": (1,)}, 1) is None
     assert sensor._temperature_value({"temperatures": ("x",)}, 0) is None
+    assert sensor._active_profile_value({}) is None
+    assert sensor._active_profile_value({"active_profile_group": "1", "active_profile_index": 2}) == "1: 2"
+    assert sensor._active_profile_value(
+        {
+            "active_profile_group": "1",
+            "active_profile_index": 2,
+            "profile_groups": {"1": "Cinema"},
+            "profiles": {"1_2": "Night"},
+        }
+    ) == "Cinema: Night"
 
 
 def test_select_profile_id_parsing_branches():
@@ -61,6 +75,7 @@ def test_select_profile_id_parsing_branches():
     assert select._parse_profile_id("1_2", None) == ("1", 2)
     assert select._parse_profile_id("2", "1") == ("1", 2)
     assert select._parse_profile_id("invalid", "1") is None
+    assert select._build_profile_options({}) == []
 
 
 class _DummyEntity(MadvrEnvyEntity):

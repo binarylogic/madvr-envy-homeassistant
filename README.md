@@ -6,7 +6,7 @@ Home Assistant custom integration for madVR Envy video processors, powered by [`
 
 - Push-based coordinator architecture (`MadvrEnvyClient` -> adapter -> bridge -> HA entities/events)
 - Config flow, reauth, and options flow
-- Platforms: `sensor`, `binary_sensor`, `switch`, `button`, `select`
+- Platforms: `sensor`, `binary_sensor`, `switch`, `button`, `select`, `remote`
 - Diagnostics with sensitive data redaction
 - Production-oriented test suite and CI/release automation
 
@@ -34,10 +34,18 @@ Home Assistant custom integration for madVR Envy video processors, powered by [`
 ## Exposed Entities
 
 - Sensors: power state, temperatures, version
+- Sensors (advanced): current menu, aspect ratio mode
 - Binary sensor: signal present
 - Switch: tone mapping
-- Select: active profile
-- Buttons: standby, power off, hotplug, restart, reload software, remote menu/info
+- Select: power mode, active profile, per-profile-group selects
+- Buttons: power on, standby, power off, hotplug, restart, reload software, remote menu/info/ok/back
+- Remote: keypress + action commands (`action:standby`, `action:restart`, etc.)
+
+## Services
+
+- `madvr_envy.press_key` (`key`)
+- `madvr_envy.activate_profile` (`group_id`, `profile_index`)
+- `madvr_envy.run_action` (`action`: `standby|power_off|hotplug|restart|reload_software|tone_map_on|tone_map_off`)
 
 ## Exposed Events
 

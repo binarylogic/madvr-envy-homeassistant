@@ -36,6 +36,7 @@ PLATFORMS: list[Platform] = [
     Platform.SWITCH,
     Platform.BUTTON,
     Platform.SELECT,
+    Platform.REMOTE,
 ]
 
 SENSITIVE_DIAGNOSTIC_KEYS = {
@@ -44,3 +45,7 @@ SENSITIVE_DIAGNOSTIC_KEYS = {
     "mac_address",
     "configuration_url",
 }
+
+SERVICE_PRESS_KEY = "press_key"
+SERVICE_ACTIVATE_PROFILE = "activate_profile"
+SERVICE_RUN_ACTION = "run_action"
