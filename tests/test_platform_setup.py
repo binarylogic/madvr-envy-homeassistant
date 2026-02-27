@@ -66,11 +66,16 @@ def test_temperature_value_helper_branches():
     assert sensor._temperature_value({"temperatures": ("x",)}, 0) is None
     assert sensor._nested_value({}, "incoming_signal", "resolution") is None
     assert (
-        sensor._nested_value({"incoming_signal": {"aspect_ratio": "16:9"}}, "incoming_signal", "aspect_ratio")
+        sensor._nested_value(
+            {"incoming_signal": {"aspect_ratio": "16:9"}}, "incoming_signal", "aspect_ratio"
+        )
         == "16:9"
     )
     assert sensor._ratio_decimal_value({}, "masking_ratio") is None
-    assert sensor._ratio_decimal_value({"masking_ratio": {"decimal_ratio": 2.259}}, "masking_ratio") == 2.259
+    assert (
+        sensor._ratio_decimal_value({"masking_ratio": {"decimal_ratio": 2.259}}, "masking_ratio")
+        == 2.259
+    )
     assert sensor._active_profile_value({}) is None
     assert (
         sensor._active_profile_value({"active_profile_group": "1", "active_profile_index": 2})
