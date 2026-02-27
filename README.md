@@ -160,3 +160,13 @@ make test
 - Conventional commits on `main`
 - `release-please` opens/updates release PRs automatically
 - Merging release PR creates GitHub release and uploads `madvr_envy.zip`
+
+## Screenshots
+
+### Sensors
+
+<img src="images/sensors.png" alt="madVR Envy sensors" width="420">
+
+### Controls
+
+<img src="images/controls.png" alt="madVR Envy controls" width="420">
