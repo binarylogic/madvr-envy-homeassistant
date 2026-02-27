@@ -8,17 +8,11 @@ from typing import Any
 import voluptuous as vol
 from homeassistant.core import HomeAssistant, ServiceCall
 
+from madvr_envy.integration_bridge import action_names, resolve_action_method
+
 from .const import DOMAIN, SERVICE_ACTIVATE_PROFILE, SERVICE_PRESS_KEY, SERVICE_RUN_ACTION
 
-_SERVICE_ACTIONS: dict[str, str] = {
-    "standby": "standby",
-    "power_off": "power_off",
-    "hotplug": "hotplug",
-    "restart": "restart",
-    "reload_software": "reload_software",
-    "tone_map_on": "tone_map_on",
-    "tone_map_off": "tone_map_off",
-}
+_SERVICE_ACTIONS = action_names()
 
 
 async def async_setup_services(hass: HomeAssistant) -> None:
@@ -39,9 +33,8 @@ async def async_setup_services(hass: HomeAssistant) -> None:
 
     async def handle_run_action(call: ServiceCall) -> None:
         action = str(call.data["action"])
-        command_name = _SERVICE_ACTIONS[action]
         for runtime_data in _iter_runtime_data(hass):
-            command = getattr(runtime_data.client, command_name)
+            command = resolve_action_method(runtime_data.client, action)
             await command()
 
     hass.services.async_register(
@@ -67,7 +60,7 @@ async def async_setup_services(hass: HomeAssistant) -> None:
         handle_run_action,
         schema=vol.Schema(
             {
-                vol.Required("action"): vol.In(sorted(_SERVICE_ACTIONS.keys())),
+                vol.Required("action"): vol.In(_SERVICE_ACTIONS),
             }
         ),
     )

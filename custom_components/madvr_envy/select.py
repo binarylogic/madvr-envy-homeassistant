@@ -2,24 +2,22 @@
 
 from __future__ import annotations
 
-import re
-from dataclasses import dataclass
-
 from homeassistant.components.select import SelectEntity
 from homeassistant.config_entries import ConfigEntry
 from homeassistant.core import HomeAssistant
 from homeassistant.helpers.entity_platform import AddEntitiesCallback
 
+from madvr_envy.integration_bridge import (
+    ProfileOption,
+)
+from madvr_envy.integration_bridge import (
+    build_profile_options as lib_build_profile_options,
+)
+from madvr_envy.integration_bridge import (
+    parse_profile_id as lib_parse_profile_id,
+)
+
 from .entity import MadvrEnvyEntity
-
-_PROFILE_ID_RE = re.compile(r"^(?P<group>.+?)[_:](?P<index>\d+)$")
-
-
-@dataclass(frozen=True, slots=True)
-class ProfileOption:
-    option: str
-    group_id: str
-    profile_index: int
 
 
 async def async_setup_entry(
@@ -166,43 +164,8 @@ class MadvrEnvyProfileGroupSelect(MadvrEnvyEntity, SelectEntity):
 
 
 def _parse_profile_id(profile_id: str, fallback_group: object) -> tuple[str, int] | None:
-    matched = _PROFILE_ID_RE.match(profile_id)
-    if matched is not None:
-        return matched.group("group"), int(matched.group("index"))
-
-    if profile_id.isdigit() and isinstance(fallback_group, str):
-        return fallback_group, int(profile_id)
-
-    return None
+    return lib_parse_profile_id(profile_id, fallback_group)
 
 
 def _build_profile_options(data: dict[str, object]) -> list[ProfileOption]:
-    group_names = data.get("profile_groups")
-    if not isinstance(group_names, dict):
-        group_names = {}
-
-    profiles = data.get("profiles")
-    if not isinstance(profiles, dict):
-        return []
-
-    options: list[ProfileOption] = []
-    for profile_id, profile_name in profiles.items():
-        if not isinstance(profile_id, str) or not isinstance(profile_name, str):
-            continue
-
-        parsed = _parse_profile_id(profile_id, data.get("active_profile_group"))
-        if parsed is None:
-            continue
-        group_id, index = parsed
-
-        group_label = group_names.get(group_id, group_id)
-        options.append(
-            ProfileOption(
-                option=f"{group_label}: {profile_name}",
-                group_id=group_id,
-                profile_index=index,
-            )
-        )
-
-    options.sort(key=lambda option: option.option.casefold())
-    return options
+    return lib_build_profile_options(data)

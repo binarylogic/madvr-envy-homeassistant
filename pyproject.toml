@@ -4,7 +4,7 @@ version = "0.2.0"
 description = "Home Assistant integration for madVR Envy"
 requires-python = ">=3.11"
 dependencies = [
-    "madvr-envy @ git+https://github.com/binarylogic/py-madvr-envy.git@v0.1.3",
+    "madvr-envy>=0.1.6",
 ]
 
 [dependency-groups]
