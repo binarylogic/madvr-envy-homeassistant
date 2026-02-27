@@ -1,0 +1,109 @@
+{
+  "config": {
+    "step": {
+      "user": {
+        "title": "Connect to madVR Envy",
+        "description": "Set up a madVR Envy processor",
+        "data": {
+          "host": "Host",
+          "port": "Port"
+        }
+      },
+      "reauth_confirm": {
+        "title": "Reconnect madVR Envy",
+        "description": "Update host or port and revalidate the connection",
+        "data": {
+          "host": "Host",
+          "port": "Port"
+        }
+      }
+    },
+    "error": {
+      "cannot_connect": "Failed to connect to the madVR Envy",
+      "invalid_backoff": "Reconnect max backoff must be greater than or equal to initial backoff",
+      "invalid_jitter": "Reconnect jitter must be between 0.0 and 1.0",
+      "unknown": "Unexpected error"
+    },
+    "abort": {
+      "reauth_successful": "Re-authentication successful",
+      "already_configured": "Device is already configured"
+    }
+  },
+  "options": {
+    "step": {
+      "init": {
+        "title": "madVR Envy options",
+        "data": {
+          "sync_timeout": "Sync timeout (seconds)",
+          "connect_timeout": "Connect timeout (seconds)",
+          "command_timeout": "Command timeout (seconds)",
+          "read_timeout": "Read timeout (seconds)",
+          "reconnect_initial_backoff": "Reconnect initial backoff (seconds)",
+          "reconnect_max_backoff": "Reconnect max backoff (seconds)",
+          "reconnect_jitter": "Reconnect jitter factor",
+          "enable_advanced_entities": "Enable advanced entities"
+        }
+      }
+    }
+  },
+  "entity": {
+    "sensor": {
+      "power_state": {
+        "name": "Power State"
+      },
+      "gpu_temperature": {
+        "name": "GPU Temperature"
+      },
+      "hdmi_input_temperature": {
+        "name": "HDMI Input Temperature"
+      },
+      "cpu_temperature": {
+        "name": "CPU Temperature"
+      },
+      "mainboard_temperature": {
+        "name": "Mainboard Temperature"
+      },
+      "version": {
+        "name": "Version"
+      }
+    },
+    "binary_sensor": {
+      "signal_present": {
+        "name": "Signal Present"
+      }
+    },
+    "switch": {
+      "tone_map": {
+        "name": "Tone Mapping"
+      }
+    },
+    "button": {
+      "standby": {
+        "name": "Standby"
+      },
+      "power_off": {
+        "name": "Power Off"
+      },
+      "hotplug": {
+        "name": "Hotplug"
+      },
+      "restart": {
+        "name": "Restart"
+      },
+      "reload_software": {
+        "name": "Reload Software"
+      },
+      "remote_menu": {
+        "name": "Remote Menu"
+      },
+      "remote_info": {
+        "name": "Remote Info"
+      }
+    },
+    "select": {
+      "active_profile": {
+        "name": "Active Profile"
+      }
+    }
+  }
+}

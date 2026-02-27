@@ -1,0 +1,23 @@
+# Python
+__pycache__/
+*.py[cod]
+*$py.class
+
+# Virtualenvs
+.venv/
+venv/
+
+# Tool caches
+.pytest_cache/
+.ruff_cache/
+.uv-cache/
+
+# Coverage / reports
+.coverage
+coverage.xml
+htmlcov/
+
+# OS/editor
+.DS_Store
+.idea/
+.vscode/
