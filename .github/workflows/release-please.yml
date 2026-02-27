@@ -3,7 +3,11 @@ name: release-please
 on:
   push:
     branches:
-      - main
+      - master
+
+concurrency:
+  group: release-please-${{ github.ref }}
+  cancel-in-progress: true
 
 permissions:
   contents: write
@@ -11,6 +15,7 @@ permissions:
 
 jobs:
   release-please:
+    timeout-minutes: 10
     runs-on: ubuntu-latest
     outputs:
       release_created: ${{ steps.release.outputs.release_created }}
@@ -25,6 +30,7 @@ jobs:
   build-release:
     needs: release-please
     if: ${{ needs.release-please.outputs.release_created }}
+    timeout-minutes: 10
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4

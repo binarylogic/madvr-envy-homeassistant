@@ -6,9 +6,14 @@ on:
   pull_request:
     branches: [main, master]
 
+concurrency:
+  group: tests-${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
 jobs:
   lint:
     name: Lint with Ruff
+    timeout-minutes: 10
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
@@ -32,6 +37,7 @@ jobs:
 
   test:
     name: Test (Python ${{ matrix.python-version }})
+    timeout-minutes: 20
     runs-on: ubuntu-latest
     strategy:
       fail-fast: false
@@ -53,7 +59,12 @@ jobs:
         run: make install
 
       - name: Run tests with coverage
-        run: make test-cov
+        run: |
+          if [ "${{ matrix.python-version }}" = "3.12" ]; then
+            make test-cov
+          else
+            make test-fast
+          fi
 
       - name: Upload coverage to Codecov
         uses: codecov/codecov-action@v4
