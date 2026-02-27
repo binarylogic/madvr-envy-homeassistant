@@ -34,7 +34,7 @@ async def test_user_flow_success(hass):
         )
 
     assert result["type"] is FlowResultType.CREATE_ENTRY
-    assert result["title"] == "madVR Envy (00:11:22:33:44:55)"
+    assert result["title"] == "madVR Envy (192.168.1.100)"
     assert result["data"] == {CONF_HOST: "192.168.1.100", CONF_PORT: 44077}
 
 

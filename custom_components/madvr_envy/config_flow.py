@@ -66,7 +66,7 @@ class MadvrEnvyConfigFlow(ConfigFlow, domain=DOMAIN):
             else:
                 await self.async_set_unique_id(unique_id)
                 self._abort_if_unique_id_configured(updates={CONF_HOST: host, CONF_PORT: port})
-                title = f"{NAME} ({mac_address})" if mac_address else f"{NAME} ({host})"
+                title = f"{NAME} ({host})"
                 return self.async_create_entry(
                     title=title,
                     data={CONF_HOST: host, CONF_PORT: port},
