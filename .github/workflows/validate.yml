@@ -2,7 +2,9 @@ name: Validate
 
 on:
   push:
+    branches: [master]
   pull_request:
+    branches: [master]
   schedule:
     - cron: "0 0 * * *"
   workflow_dispatch:
@@ -16,6 +18,8 @@ jobs:
     name: HACS Validation
     timeout-minutes: 10
     runs-on: ubuntu-latest
+    permissions:
+      contents: read
     steps:
       - name: Checkout code
         uses: actions/checkout@v4
@@ -31,6 +35,8 @@ jobs:
     name: Hassfest Validation
     timeout-minutes: 10
     runs-on: ubuntu-latest
+    permissions:
+      contents: read
     steps:
       - name: Checkout code
         uses: actions/checkout@v4
