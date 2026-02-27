@@ -72,6 +72,36 @@
       "aspect_ratio_mode": {
         "name": "Aspect Ratio Mode"
       },
+      "incoming_signal_resolution": {
+        "name": "Incoming Signal Resolution"
+      },
+      "incoming_signal_frame_rate": {
+        "name": "Incoming Signal Frame Rate"
+      },
+      "incoming_signal_aspect_ratio": {
+        "name": "Incoming Signal Aspect Ratio"
+      },
+      "incoming_signal_hdr_mode": {
+        "name": "Incoming Signal HDR Mode"
+      },
+      "outgoing_signal_resolution": {
+        "name": "Outgoing Signal Resolution"
+      },
+      "outgoing_signal_frame_rate": {
+        "name": "Outgoing Signal Frame Rate"
+      },
+      "outgoing_signal_hdr_mode": {
+        "name": "Outgoing Signal HDR Mode"
+      },
+      "aspect_ratio_name": {
+        "name": "Aspect Ratio Name"
+      },
+      "aspect_ratio_decimal": {
+        "name": "Aspect Ratio Decimal"
+      },
+      "masking_ratio_decimal": {
+        "name": "Masking Ratio Decimal"
+      },
       "active_profile": {
         "name": "Active Profile"
       }

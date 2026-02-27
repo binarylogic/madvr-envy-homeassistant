@@ -113,7 +113,9 @@ data:
 ## Exposed Entities
 
 - Sensors: power state, temperatures, version
-- Sensors (advanced): current menu, aspect ratio mode, active profile
+- Sensors: incoming/outgoing signal resolution, frame rate, HDR mode, incoming aspect ratio
+- Sensors: aspect ratio mode, aspect ratio name/decimal, masking ratio decimal, active profile
+- Sensors (advanced): version, current menu
 - Binary sensor: signal present
 - Switch: tone mapping
 - Select: power mode, active profile, per-profile-group selects
