@@ -4,11 +4,11 @@ Home Assistant custom integration for madVR Envy video processors, powered by [`
 
 ## Project Status
 
-This repository is the canonical and maintained integration for madVR Envy on Home Assistant via HACS/manual install.
+This repository is the canonical and maintained madVR Envy integration for Home Assistant.
 
-There is no active plan to promote this project to Home Assistant Core at this time.
+This project is intentionally maintained as a high-quality custom integration instead of targeting Home Assistant Core. That allows faster iteration, deeper protocol support, and tighter product-focused UX.
 
-Release notes and compatibility updates are tracked here in this repository.
+Release notes and compatibility updates are tracked in this repository.
 
 ## Prerequisites
 
@@ -22,16 +22,17 @@ Release notes and compatibility updates are tracked here in this repository.
 
 1. Open HACS in Home Assistant.
 2. Go to `Integrations`.
-3. Click the top-right menu (three dots) and select `Custom repositories`.
-4. Paste this repository URL:
-   - `https://github.com/binarylogic/madvr-envy-homeassistant`
-5. Set category to `Integration`.
-6. Click `Add`.
-7. Search for `madVR Envy` in HACS Integrations.
-8. Open it and click `Download`.
-9. Restart Home Assistant.
-10. Go to Settings > Devices & Services > `Add Integration`.
-11. Search for `madVR Envy` and complete setup.
+3. Search for `madVR Envy`.
+4. Open it and click `Download`.
+5. Restart Home Assistant.
+6. Go to Settings > Devices & Services > `Add Integration`.
+7. Search for `madVR Envy` and complete setup.
+
+If HACS has not synced the default index update yet, temporarily add it as a custom repository:
+
+1. In HACS, open the top-right menu (three dots) and choose `Custom repositories`.
+2. Add `https://github.com/binarylogic/madvr-envy-homeassistant` as category `Integration`.
+3. Refresh HACS and install as above.
 
 ### Manual
 
