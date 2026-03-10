@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.3.4](https://github.com/binarylogic/madvr-envy-homeassistant/compare/v0.3.3...v0.3.4) (2026-03-10)
+
+
+### Bug Fixes
+
+* stabilize lifecycle entities across envy sleep ([fd771d8](https://github.com/binarylogic/madvr-envy-homeassistant/commit/fd771d8b621394ae466596cfd306be370c58d69b))
+
 ## [0.3.3](https://github.com/binarylogic/madvr-envy-homeassistant/compare/v0.3.2...v0.3.3) (2026-03-10)
 
 
