@@ -14,6 +14,7 @@ from madvr_envy import exceptions
 
 from .const import DOMAIN, MANUFACTURER, MODEL, NAME
 from .coordinator import MadvrEnvyCoordinator
+from .lifecycle import PowerState, normalize_power_state
 
 
 class MadvrEnvyEntity(CoordinatorEntity[MadvrEnvyCoordinator]):
@@ -49,18 +50,23 @@ class MadvrEnvyEntity(CoordinatorEntity[MadvrEnvyCoordinator]):
 
     @property
     def _power_state(self) -> str | None:
-        value = self.data.get("power_state")
-        if isinstance(value, str):
-            return value
-        return None
+        return normalize_power_state(self.data.get("power_state")).value
 
     @property
     def _expected_powered_down(self) -> bool:
-        return self._power_state in {"standby", "off"}
+        return normalize_power_state(self.data.get("power_state")) in {
+            PowerState.STANDBY,
+            PowerState.OFF,
+        }
 
     @property
     def _lifecycle_available(self) -> bool:
         return self._transport_available or self._expected_powered_down
+
+    @property
+    def _entity_state_available(self) -> bool:
+        """Return True for entities that should remain present with unknown values."""
+        return True
 
     @property
     def data(self) -> dict[str, Any]:
@@ -86,3 +92,16 @@ class MadvrEnvyEntity(CoordinatorEntity[MadvrEnvyCoordinator]):
             exceptions.ConnectionTimeoutError,
         ) as err:
             raise HomeAssistantError(f"{command_name} failed: {err}") from err
+
+    async def _execute_with_power_state(
+        self,
+        command_name: str,
+        power_state: PowerState | None,
+        command: Callable[[], Any],
+    ) -> None:
+        self.coordinator.set_power_state_override(power_state)
+        try:
+            await self._execute(command_name, command)
+        except Exception:
+            self.coordinator.set_power_state_override(None)
+            raise

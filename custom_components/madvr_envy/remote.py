@@ -12,6 +12,7 @@ from homeassistant.helpers.entity_platform import AddEntitiesCallback
 from madvr_envy.integration_bridge import iter_remote_operations, resolve_action_method
 
 from .entity import MadvrEnvyEntity
+from .lifecycle import PowerState
 
 
 async def async_setup_entry(
@@ -35,10 +36,18 @@ class MadvrEnvyRemote(MadvrEnvyEntity, RemoteEntity):
         return self.available and self.data.get("power_state") != "off"
 
     async def async_turn_on(self, **kwargs: Any) -> None:
-        await self._execute("KeyPress POWER", lambda: self._client.key_press("POWER"))
+        await self._execute_with_power_state(
+            "KeyPress POWER",
+            None,
+            lambda: self._client.key_press("POWER"),
+        )
 
     async def async_turn_off(self, **kwargs: Any) -> None:
-        await self._execute("Standby", self._client.standby)
+        await self._execute_with_power_state(
+            "Standby",
+            PowerState.STANDBY,
+            self._client.standby,
+        )
 
     async def async_send_command(self, command: Any, **kwargs: Any) -> None:
         for operation in iter_remote_operations(command):

@@ -12,6 +12,7 @@ from homeassistant.helpers.entity_platform import AddEntitiesCallback
 
 from .const import OPT_ENABLE_ADVANCED_ENTITIES
 from .entity import MadvrEnvyEntity
+from .lifecycle import PowerState
 
 
 @dataclass(frozen=True, kw_only=True)
@@ -24,21 +25,31 @@ BUTTONS: tuple[MadvrEnvyButtonDescription, ...] = (
         key="power_on",
         translation_key="power_on",
         icon="mdi:power-on",
-        press_fn=lambda entity: entity._execute(
-            "KeyPress POWER", lambda: entity._client.key_press("POWER")
+        press_fn=lambda entity: entity._execute_with_power_state(
+            "KeyPress POWER",
+            None,
+            lambda: entity._client.key_press("POWER"),
         ),
     ),
     MadvrEnvyButtonDescription(
         key="standby",
         translation_key="standby",
         icon="mdi:sleep",
-        press_fn=lambda entity: entity._execute("Standby", entity._client.standby),
+        press_fn=lambda entity: entity._execute_with_power_state(
+            "Standby",
+            PowerState.STANDBY,
+            entity._client.standby,
+        ),
     ),
     MadvrEnvyButtonDescription(
         key="power_off",
         translation_key="power_off",
         icon="mdi:power-off",
-        press_fn=lambda entity: entity._execute("PowerOff", entity._client.power_off),
+        press_fn=lambda entity: entity._execute_with_power_state(
+            "PowerOff",
+            PowerState.OFF,
+            entity._client.power_off,
+        ),
     ),
     MadvrEnvyButtonDescription(
         key="hotplug",

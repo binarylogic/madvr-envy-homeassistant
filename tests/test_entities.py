@@ -148,7 +148,7 @@ async def test_power_sensor_stays_available_during_expected_power_down(hass, moc
 
 
 async def test_power_mode_select_is_unavailable_when_transport_is_down(hass, mock_envy_client):
-    """Test the power select does not claim control when the Envy is disconnected."""
+    """Test the power select stays present through expected standby/off disconnects."""
     coordinator = MadvrEnvyCoordinator(hass, mock_envy_client)
     await coordinator.async_start()
 
@@ -162,14 +162,14 @@ async def test_power_mode_select_is_unavailable_when_transport_is_down(hass, moc
 
     power_mode = MadvrEnvyPowerModeSelect(coordinator)
 
-    assert power_mode.available is False
+    assert power_mode.available is True
     assert power_mode.current_option == "standby"
 
     await coordinator.async_shutdown()
 
 
-async def test_power_sensor_is_unavailable_on_true_disconnect(hass, mock_envy_client):
-    """Test power sensor still goes unavailable when disconnect is not a known power-down."""
+async def test_power_sensor_reports_last_known_state_on_true_disconnect(hass, mock_envy_client):
+    """Test the lifecycle sensor remains explicit across disconnect timing races."""
     coordinator = MadvrEnvyCoordinator(hass, mock_envy_client)
     await coordinator.async_start()
 
@@ -185,7 +185,8 @@ async def test_power_sensor_is_unavailable_on_true_disconnect(hass, mock_envy_cl
         coordinator, next(item for item in SENSORS if item.key == "power_state")
     )
 
-    assert power_sensor.available is False
+    assert power_sensor.available is True
+    assert power_sensor.native_value == "on"
 
     await coordinator.async_shutdown()
 
@@ -233,4 +234,26 @@ async def test_profile_group_select_name_fallback(hass, mock_envy_client):
     coordinator.data["profile_groups"] = {}
     entity = MadvrEnvyProfileGroupSelect(coordinator, "custom")
     assert entity.name == "custom Profile"
+    await coordinator.async_shutdown()
+
+
+async def test_active_profile_select_returns_unknown_offline(hass, mock_envy_client):
+    """Test active profile stays present but unknown when transport is down."""
+    coordinator = MadvrEnvyCoordinator(hass, mock_envy_client)
+    await coordinator.async_start()
+
+    coordinator.async_set_updated_data(
+        {
+            **coordinator.data,
+            "available": False,
+            "power_state": "standby",
+            "active_profile_group": None,
+            "active_profile_index": None,
+        }
+    )
+
+    entity = MadvrEnvyActiveProfileSelect(coordinator)
+    assert entity.available is True
+    assert entity.current_option is None
+
     await coordinator.async_shutdown()
