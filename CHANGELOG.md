@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.4.2](https://github.com/binarylogic/madvr-envy-homeassistant/compare/v0.4.1...v0.4.2) (2026-03-10)
+
+
+### Bug Fixes
+
+* require madvr-envy 0.2.1 ([#15](https://github.com/binarylogic/madvr-envy-homeassistant/issues/15)) ([5478161](https://github.com/binarylogic/madvr-envy-homeassistant/commit/54781610222a010243c80d3cebf1a673630947cd))
+
 ## [0.4.1](https://github.com/binarylogic/madvr-envy-homeassistant/compare/v0.4.0...v0.4.1) (2026-03-10)
 
 
