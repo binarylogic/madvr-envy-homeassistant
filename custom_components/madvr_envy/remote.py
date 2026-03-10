@@ -33,7 +33,7 @@ class MadvrEnvyRemote(MadvrEnvyEntity, RemoteEntity):
 
     @property
     def available(self) -> bool:
-        return self.power_control_available
+        return self.can_remote
 
     @property
     def is_on(self) -> bool:

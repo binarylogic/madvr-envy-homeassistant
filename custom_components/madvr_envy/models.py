@@ -20,7 +20,9 @@ class MadvrEnvyRuntimeState:
     mac_address: str | None = None
     can_wake: bool = False
     can_send_live_commands: bool = False
-    power_control_available: bool = False
+    can_power_on: bool = False
+    can_power_down: bool = False
+    can_remote: bool = False
     version: str | None = None
     current_menu: str | None = None
     aspect_ratio_mode: str | None = None

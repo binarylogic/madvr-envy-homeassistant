@@ -169,6 +169,21 @@ class MadvrEnvyCoordinator(DataUpdateCoordinator[MadvrEnvyRuntimeState]):
         """Return whether at least one power control is meaningful now."""
         return self.can_send_live_commands or self.can_wake
 
+    @property
+    def can_power_on(self) -> bool:
+        """Return whether a wake/power-on action can succeed now."""
+        return self.can_send_live_commands or self.can_wake
+
+    @property
+    def can_power_down(self) -> bool:
+        """Return whether standby/power-off commands can succeed now."""
+        return self.can_send_live_commands
+
+    @property
+    def can_remote(self) -> bool:
+        """Return whether remote control commands can succeed now."""
+        return self.can_send_live_commands
+
     async def async_power_on(self) -> None:
         """Wake or power on the device using the configured wake path."""
         if self.can_send_live_commands:
@@ -280,7 +295,9 @@ class MadvrEnvyCoordinator(DataUpdateCoordinator[MadvrEnvyRuntimeState]):
             mac_address=self._mac_address,
             can_wake=self.can_wake,
             can_send_live_commands=self.can_send_live_commands,
-            power_control_available=self.power_control_available,
+            can_power_on=self.can_power_on,
+            can_power_down=self.can_power_down,
+            can_remote=self.can_remote,
             version=_string_value(self._payload.get("version")),
             current_menu=_string_value(self._payload.get("current_menu")),
             aspect_ratio_mode=_string_value(self._payload.get("aspect_ratio_mode")),

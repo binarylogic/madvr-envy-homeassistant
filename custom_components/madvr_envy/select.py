@@ -45,7 +45,7 @@ class MadvrEnvyPowerModeSelect(MadvrEnvyEntity, SelectEntity):
 
     @property
     def available(self) -> bool:
-        return self.power_control_available
+        return self.can_power_on or self.can_power_down
 
     @property
     def current_option(self) -> str | None:
