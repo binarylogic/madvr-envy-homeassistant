@@ -3211,11 +3211,11 @@ wheels = [
 
 [[package]]
 name = "madvr-envy"
-version = "0.2.0"
+version = "0.2.1"
 source = { registry = "https://pypi.org/simple" }
-sdist = { url = "https://files.pythonhosted.org/packages/c5/ef/5397efb34bc4f80bdceb07725e697a1ec93cfb0dbe335af5477c1df213d0/madvr_envy-0.2.0.tar.gz", hash = "sha256:7b4321cc4f02cfe55002e9ebfb7287d79d9205439a7b93d52ed3da228cf61f19", size = 37730, upload-time = "2026-03-10T20:57:12.045Z" }
+sdist = { url = "https://files.pythonhosted.org/packages/e9/eb/960aa77375948d7cb16edc07484fa557959ff8ff174c9c0ba073f912da56/madvr_envy-0.2.1.tar.gz", hash = "sha256:25c9e5f78fc07b7a4585ccc2e229d940dc574482f713b9d81ce895bd80ecd84a", size = 37990, upload-time = "2026-03-10T22:58:22.657Z" }
 wheels = [
-    { url = "https://files.pythonhosted.org/packages/bb/32/49740ac8ce483af0fca76e6ea7046000074ff1f4560328ef52eb60ff6835/madvr_envy-0.2.0-py3-none-any.whl", hash = "sha256:7aec77a347e712a4ec66073bb7eac5ba55d0b13a89cdb124d47b3ddb3349cc95", size = 22573, upload-time = "2026-03-10T20:57:09.996Z" },
+    { url = "https://files.pythonhosted.org/packages/e0/9b/1f9d94fa4ecb5997df66da2bb5beaa59d92752932966e339f56fa505b545/madvr_envy-0.2.1-py3-none-any.whl", hash = "sha256:3d8ec58ce1f973ca32c44227261dbedf4b09cc79a5598c4a4ff7e2728e4cd5a1", size = 22580, upload-time = "2026-03-10T22:58:21.234Z" },
 ]
 
 [[package]]
@@ -3247,7 +3247,7 @@ dev = [
 ]
 
 [package.metadata]
-requires-dist = [{ name = "madvr-envy", specifier = ">=0.2.0" }]
+requires-dist = [{ name = "madvr-envy", specifier = ">=0.2.1" }]
 
 [package.metadata.requires-dev]
 dev = [
