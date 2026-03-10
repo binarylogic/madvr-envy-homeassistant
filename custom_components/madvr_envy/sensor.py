@@ -24,7 +24,9 @@ SENSORS: tuple[MadvrEnvySensorDescription, ...] = (
     MadvrEnvySensorDescription(
         key="power_state",
         translation_key="power_state",
+        device_class=SensorDeviceClass.ENUM,
         icon="mdi:power",
+        options=["on", "standby", "off", "unknown"],
         value_fn=lambda data: data.get("power_state"),
     ),
     MadvrEnvySensorDescription(
@@ -170,7 +172,17 @@ class MadvrEnvySensor(MadvrEnvyEntity, SensorEntity):
         self.entity_description = description
 
     @property
+    def available(self) -> bool:
+        return self._lifecycle_available
+
+    @property
     def native_value(self) -> Any:
+        if (
+            not self._transport_available
+            and self._expected_powered_down
+            and self.entity_description.key != "power_state"
+        ):
+            return None
         return self.entity_description.value_fn(self.data)
 
 

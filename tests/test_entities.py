@@ -119,6 +119,60 @@ async def test_power_mode_select_calls_expected_commands(hass, mock_envy_client)
     await coordinator.async_shutdown()
 
 
+async def test_power_entities_stay_available_during_expected_power_down(hass, mock_envy_client):
+    """Test primary lifecycle entities stay available in standby/off disconnects."""
+    coordinator = MadvrEnvyCoordinator(hass, mock_envy_client)
+    await coordinator.async_start()
+
+    coordinator.async_set_updated_data(
+        {
+            **coordinator.data,
+            "available": False,
+            "power_state": "standby",
+            "temperatures": None,
+        }
+    )
+
+    power_sensor = MadvrEnvySensor(
+        coordinator, next(item for item in SENSORS if item.key == "power_state")
+    )
+    gpu_sensor = MadvrEnvySensor(
+        coordinator, next(item for item in SENSORS if item.key == "gpu_temperature")
+    )
+    power_mode = MadvrEnvyPowerModeSelect(coordinator)
+
+    assert power_sensor.available is True
+    assert power_sensor.native_value == "standby"
+    assert gpu_sensor.available is True
+    assert gpu_sensor.native_value is None
+    assert power_mode.available is True
+    assert power_mode.current_option == "standby"
+
+    await coordinator.async_shutdown()
+
+
+async def test_power_sensor_is_unavailable_on_true_disconnect(hass, mock_envy_client):
+    """Test power sensor still goes unavailable when disconnect is not a known power-down."""
+    coordinator = MadvrEnvyCoordinator(hass, mock_envy_client)
+    await coordinator.async_start()
+
+    coordinator.async_set_updated_data(
+        {
+            **coordinator.data,
+            "available": False,
+            "power_state": "on",
+        }
+    )
+
+    power_sensor = MadvrEnvySensor(
+        coordinator, next(item for item in SENSORS if item.key == "power_state")
+    )
+
+    assert power_sensor.available is False
+
+    await coordinator.async_shutdown()
+
+
 async def test_profile_group_select(hass, mock_envy_client):
     """Test profile-group scoped select entity behavior."""
     coordinator = MadvrEnvyCoordinator(hass, mock_envy_client)

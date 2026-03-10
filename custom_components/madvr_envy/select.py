@@ -52,6 +52,10 @@ class MadvrEnvyPowerModeSelect(MadvrEnvyEntity, SelectEntity):
         super().__init__(coordinator, "power_mode")
 
     @property
+    def available(self) -> bool:
+        return self._lifecycle_available
+
+    @property
     def current_option(self) -> str | None:
         power_state = self.data.get("power_state")
         if isinstance(power_state, str) and power_state in self.options:

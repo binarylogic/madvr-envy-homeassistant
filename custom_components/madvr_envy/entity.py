@@ -44,6 +44,25 @@ class MadvrEnvyEntity(CoordinatorEntity[MadvrEnvyCoordinator]):
         return bool(self.data.get("available"))
 
     @property
+    def _transport_available(self) -> bool:
+        return bool(self.data.get("available"))
+
+    @property
+    def _power_state(self) -> str | None:
+        value = self.data.get("power_state")
+        if isinstance(value, str):
+            return value
+        return None
+
+    @property
+    def _expected_powered_down(self) -> bool:
+        return self._power_state in {"standby", "off"}
+
+    @property
+    def _lifecycle_available(self) -> bool:
+        return self._transport_available or self._expected_powered_down
+
+    @property
     def data(self) -> dict[str, Any]:
         if self.coordinator.data is None:
             return {}

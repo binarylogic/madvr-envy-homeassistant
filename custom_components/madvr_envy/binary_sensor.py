@@ -55,7 +55,13 @@ class MadvrEnvyBinarySensor(MadvrEnvyEntity, BinarySensorEntity):
         self.entity_description = description
 
     @property
+    def available(self) -> bool:
+        return self._lifecycle_available
+
+    @property
     def is_on(self) -> bool | None:
+        if not self._transport_available and self._expected_powered_down:
+            return None
         value = self.entity_description.value_fn(self.data)
         if value is None:
             return None

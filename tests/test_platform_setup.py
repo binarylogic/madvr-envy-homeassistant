@@ -8,6 +8,7 @@ import pytest
 from homeassistant.exceptions import HomeAssistantError
 
 from custom_components.madvr_envy import binary_sensor, button, remote, select, sensor, switch
+from custom_components.madvr_envy.binary_sensor import BINARY_SENSORS, MadvrEnvyBinarySensor
 from custom_components.madvr_envy.coordinator import MadvrEnvyCoordinator
 from custom_components.madvr_envy.entity import MadvrEnvyEntity
 
@@ -119,5 +120,26 @@ async def test_entity_execute_wraps_command_errors(hass, mock_envy_client):
 
     with pytest.raises(HomeAssistantError):
         await entity._execute("test", _failing_command)
+
+    await coordinator.async_shutdown()
+
+
+async def test_binary_sensor_returns_unknown_during_expected_power_down(hass, mock_envy_client):
+    """Test secondary binary sensors degrade to unknown during standby/off."""
+    coordinator = MadvrEnvyCoordinator(hass, mock_envy_client)
+    await coordinator.async_start()
+
+    coordinator.async_set_updated_data(
+        {
+            **coordinator.data,
+            "available": False,
+            "power_state": "off",
+            "signal_present": True,
+        }
+    )
+
+    entity = MadvrEnvyBinarySensor(coordinator, BINARY_SENSORS[0])
+    assert entity.available is True
+    assert entity.is_on is None
 
     await coordinator.async_shutdown()
