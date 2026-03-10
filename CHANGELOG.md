@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.3.2](https://github.com/binarylogic/madvr-envy-homeassistant/compare/v0.3.1...v0.3.2) (2026-03-10)
+
+
+### Bug Fixes
+
+* keep envy lifecycle entities available in standby ([a870b80](https://github.com/binarylogic/madvr-envy-homeassistant/commit/a870b803636245cdd26242783abbd23ef71c3e0b))
+
 ## [0.3.0](https://github.com/binarylogic/madvr-envy-homeassistant/compare/v0.2.0...v0.3.0) (2026-02-27)
 
 
