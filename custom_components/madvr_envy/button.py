@@ -18,7 +18,8 @@ from .entity import MadvrEnvyEntity
 class MadvrEnvyButtonDescription(ButtonEntityDescription):
     press_fn: Callable[[MadvrEnvyEntity], Awaitable[None]]
     live_command_only: bool = True
-    power_command: bool = False
+    power_on_command: bool = False
+    power_down_command: bool = False
 
 
 BUTTONS: tuple[MadvrEnvyButtonDescription, ...] = (
@@ -28,21 +29,21 @@ BUTTONS: tuple[MadvrEnvyButtonDescription, ...] = (
         icon="mdi:power-on",
         press_fn=lambda entity: entity._execute("PowerOn", entity.coordinator.async_power_on),
         live_command_only=False,
-        power_command=True,
+        power_on_command=True,
     ),
     MadvrEnvyButtonDescription(
         key="standby",
         translation_key="standby",
         icon="mdi:sleep",
         press_fn=lambda entity: entity._execute("Standby", entity.coordinator.async_standby),
-        power_command=True,
+        power_down_command=True,
     ),
     MadvrEnvyButtonDescription(
         key="power_off",
         translation_key="power_off",
         icon="mdi:power-off",
         press_fn=lambda entity: entity._execute("PowerOff", entity.coordinator.async_power_off),
-        power_command=True,
+        power_down_command=True,
     ),
     MadvrEnvyButtonDescription(
         key="hotplug",
@@ -125,8 +126,10 @@ class MadvrEnvyButton(MadvrEnvyEntity, ButtonEntity):
 
     @property
     def available(self) -> bool:
-        if self.entity_description.power_command:
-            return self.power_control_available
+        if self.entity_description.power_on_command:
+            return self.can_power_on
+        if self.entity_description.power_down_command:
+            return self.can_power_down
         if self.entity_description.live_command_only:
             return self.can_send_live_commands
         return True

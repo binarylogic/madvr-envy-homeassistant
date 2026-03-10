@@ -171,6 +171,31 @@ async def test_power_on_uses_wol_when_disconnected(hass, mock_envy_client):
     await coordinator.async_shutdown()
 
 
+async def test_only_power_on_remains_available_with_wol_when_disconnected(hass, mock_envy_client):
+    """Test WOL-only sleep exposes wake but not live power-down or remote controls."""
+    coordinator = MadvrEnvyCoordinator(
+        hass,
+        mock_envy_client,
+        entry_id="test-entry",
+        configured_mac_address="00:11:22:33:44:55",
+        wake_mode=WakeMode.AUTO,
+    )
+    await coordinator.async_start()
+    mock_envy_client._test_callbacks["client"]("disconnected", None)
+
+    power_on = MadvrEnvyButton(coordinator, next(item for item in BUTTONS if item.key == "power_on"))
+    standby = MadvrEnvyButton(coordinator, next(item for item in BUTTONS if item.key == "standby"))
+    power_off = MadvrEnvyButton(coordinator, next(item for item in BUTTONS if item.key == "power_off"))
+    remote_entity = MadvrEnvyRemote(coordinator)
+
+    assert power_on.available is True
+    assert standby.available is False
+    assert power_off.available is False
+    assert remote_entity.available is False
+
+    await coordinator.async_shutdown()
+
+
 async def test_power_mode_select_reflects_restored_standby(hass, mock_envy_client):
     """Test power controls stay explicit when the Envy is asleep."""
     mock_envy_client.wait_synced.side_effect = TimeoutError
@@ -192,6 +217,31 @@ async def test_power_mode_select_reflects_restored_standby(hass, mock_envy_clien
 
     assert power_mode.available is True
     assert power_mode.current_option == "standby"
+
+    await coordinator.async_shutdown()
+
+
+async def test_power_mode_select_only_wakes_when_disconnected(hass, mock_envy_client):
+    """Test disconnected WOL state exposes current power mode but only supports wake."""
+    coordinator = MadvrEnvyCoordinator(
+        hass,
+        mock_envy_client,
+        entry_id="test-entry",
+        configured_mac_address="00:11:22:33:44:55",
+        wake_mode=WakeMode.AUTO,
+    )
+    await coordinator.async_start()
+    await coordinator.async_standby()
+    mock_envy_client._test_callbacks["client"]("disconnected", None)
+
+    power_mode = MadvrEnvyPowerModeSelect(coordinator)
+
+    assert power_mode.available is True
+    assert power_mode.current_option == "standby"
+
+    with patch("custom_components.madvr_envy.coordinator.async_send_magic_packet", AsyncMock()) as send_wol:
+        await power_mode.async_select_option("on")
+        send_wol.assert_awaited_once_with("00:11:22:33:44:55")
 
     await coordinator.async_shutdown()
 

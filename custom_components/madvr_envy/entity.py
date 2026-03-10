@@ -68,8 +68,16 @@ class MadvrEnvyEntity(CoordinatorEntity[MadvrEnvyCoordinator]):
         return self.snapshot.can_wake
 
     @property
-    def power_control_available(self) -> bool:
-        return self.snapshot.power_control_available
+    def can_power_on(self) -> bool:
+        return self.snapshot.can_power_on
+
+    @property
+    def can_power_down(self) -> bool:
+        return self.snapshot.can_power_down
+
+    @property
+    def can_remote(self) -> bool:
+        return self.snapshot.can_remote
 
     @property
     def is_awake(self) -> bool:
