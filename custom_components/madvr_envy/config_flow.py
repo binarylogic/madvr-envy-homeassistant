@@ -14,6 +14,7 @@ from madvr_envy import MadvrEnvyClient
 from madvr_envy import exceptions as envy_exceptions
 
 from .const import (
+    CONF_MAC_ADDRESS,
     DEFAULT_COMMAND_TIMEOUT,
     DEFAULT_CONNECT_TIMEOUT,
     DEFAULT_ENABLE_ADVANCED_ENTITIES,
@@ -23,17 +24,21 @@ from .const import (
     DEFAULT_RECONNECT_JITTER,
     DEFAULT_RECONNECT_MAX_BACKOFF,
     DEFAULT_SYNC_TIMEOUT,
+    DEFAULT_WAKE_MODE,
     DOMAIN,
     NAME,
     OPT_COMMAND_TIMEOUT,
     OPT_CONNECT_TIMEOUT,
     OPT_ENABLE_ADVANCED_ENTITIES,
+    OPT_MAC_ADDRESS,
     OPT_READ_TIMEOUT,
     OPT_RECONNECT_INITIAL_BACKOFF,
     OPT_RECONNECT_JITTER,
     OPT_RECONNECT_MAX_BACKOFF,
     OPT_SYNC_TIMEOUT,
+    OPT_WAKE_MODE,
 )
+from .lifecycle import WakeMode, normalize_mac_address, normalize_wake_mode
 
 _LOGGER = logging.getLogger(__name__)
 
@@ -67,10 +72,10 @@ class MadvrEnvyConfigFlow(ConfigFlow, domain=DOMAIN):
                 await self.async_set_unique_id(unique_id)
                 self._abort_if_unique_id_configured(updates={CONF_HOST: host, CONF_PORT: port})
                 title = f"{NAME} ({host})"
-                return self.async_create_entry(
-                    title=title,
-                    data={CONF_HOST: host, CONF_PORT: port},
-                )
+                data = {CONF_HOST: host, CONF_PORT: port}
+                if mac_address is not None:
+                    data[CONF_MAC_ADDRESS] = mac_address
+                return self.async_create_entry(title=title, data=data)
 
         return self.async_show_form(
             step_id="user", data_schema=STEP_USER_DATA_SCHEMA, errors=errors
@@ -93,14 +98,14 @@ class MadvrEnvyConfigFlow(ConfigFlow, domain=DOMAIN):
             host = user_input[CONF_HOST].strip()
             port = int(user_input[CONF_PORT])
 
-            unique_id, _ = await _validate_connection(host, port)
+            unique_id, mac_address = await _validate_connection(host, port)
             if unique_id is None:
                 errors["base"] = "cannot_connect"
             else:
-                self.hass.config_entries.async_update_entry(
-                    self._reauth_entry,
-                    data={**self._reauth_entry.data, CONF_HOST: host, CONF_PORT: port},
-                )
+                data = {**self._reauth_entry.data, CONF_HOST: host, CONF_PORT: port}
+                if mac_address is not None:
+                    data[CONF_MAC_ADDRESS] = mac_address
+                self.hass.config_entries.async_update_entry(self._reauth_entry, data=data)
                 await self.hass.config_entries.async_reload(self._reauth_entry.entry_id)
                 return self.async_abort(reason="reauth_successful")
 
@@ -148,7 +153,15 @@ class MadvrEnvyOptionsFlowHandler(OptionsFlow):
                     data_schema=_build_options_schema(self._config_entry),
                     errors={"base": "invalid_jitter"},
                 )
-            return self.async_create_entry(title="", data=user_input)
+            mac_address = normalize_mac_address(user_input.get(OPT_MAC_ADDRESS))
+            return self.async_create_entry(
+                title="",
+                data={
+                    **user_input,
+                    OPT_MAC_ADDRESS: mac_address or "",
+                    OPT_WAKE_MODE: normalize_wake_mode(user_input[OPT_WAKE_MODE]).value,
+                },
+            )
 
         return self.async_show_form(
             step_id="init",
@@ -174,9 +187,9 @@ async def _validate_connection(host: str, port: int) -> tuple[str | None, str | 
     finally:
         await client.stop()
 
-    mac_address = client.state.mac_address
+    mac_address = normalize_mac_address(client.state.mac_address)
     if mac_address:
-        normalized_mac = mac_address.lower().replace(":", "")
+        normalized_mac = mac_address.replace(":", "")
         return f"{DOMAIN}_{normalized_mac}", mac_address
 
     return f"{DOMAIN}_{host}_{port}", None
@@ -222,6 +235,19 @@ def _build_options_schema(config_entry: ConfigEntry) -> vol.Schema:
                     DEFAULT_RECONNECT_JITTER,
                 ),
             ): vol.All(vol.Coerce(float), vol.Range(min=0.0, max=1.0)),
+            vol.Required(
+                OPT_WAKE_MODE,
+                default=normalize_wake_mode(
+                    config_entry.options.get(OPT_WAKE_MODE, DEFAULT_WAKE_MODE)
+                ).value,
+            ): vol.In([mode.value for mode in WakeMode]),
+            vol.Required(
+                OPT_MAC_ADDRESS,
+                default=config_entry.options.get(
+                    OPT_MAC_ADDRESS,
+                    config_entry.data.get(CONF_MAC_ADDRESS, ""),
+                ),
+            ): str,
             vol.Required(
                 OPT_ENABLE_ADVANCED_ENTITIES,
                 default=config_entry.options.get(

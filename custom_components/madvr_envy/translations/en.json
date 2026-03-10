@@ -41,7 +41,9 @@
           "reconnect_initial_backoff": "Reconnect initial backoff (seconds)",
           "reconnect_max_backoff": "Reconnect max backoff (seconds)",
           "reconnect_jitter": "Reconnect jitter factor",
-          "enable_advanced_entities": "Enable advanced entities"
+          "enable_advanced_entities": "Enable advanced entities",
+          "wake_mode": "Wake method",
+          "mac_address": "Wake MAC address"
         }
       }
     }

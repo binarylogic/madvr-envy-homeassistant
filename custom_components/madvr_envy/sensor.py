@@ -13,6 +13,8 @@ from homeassistant.helpers.entity_platform import AddEntitiesCallback
 
 from .const import OPT_ENABLE_ADVANCED_ENTITIES
 from .entity import MadvrEnvyEntity
+from .lifecycle import PowerState
+from .models import MadvrEnvyRuntimeState
 
 
 @dataclass(frozen=True, kw_only=True)
@@ -26,122 +28,122 @@ SENSORS: tuple[MadvrEnvySensorDescription, ...] = (
         translation_key="power_state",
         device_class=SensorDeviceClass.ENUM,
         icon="mdi:power",
-        options=["on", "standby", "off", "unknown"],
-        value_fn=lambda data: data.get("power_state"),
+        options=[state.value for state in PowerState],
+        value_fn=lambda snapshot: snapshot.power_state.value,
     ),
     MadvrEnvySensorDescription(
         key="gpu_temperature",
         translation_key="gpu_temperature",
         device_class=SensorDeviceClass.TEMPERATURE,
         native_unit_of_measurement=UnitOfTemperature.CELSIUS,
-        value_fn=lambda data: _temperature_value(data, 0),
+        value_fn=lambda snapshot: _temperature_value(snapshot, 0),
     ),
     MadvrEnvySensorDescription(
         key="hdmi_input_temperature",
         translation_key="hdmi_input_temperature",
         device_class=SensorDeviceClass.TEMPERATURE,
         native_unit_of_measurement=UnitOfTemperature.CELSIUS,
-        value_fn=lambda data: _temperature_value(data, 1),
+        value_fn=lambda snapshot: _temperature_value(snapshot, 1),
     ),
     MadvrEnvySensorDescription(
         key="cpu_temperature",
         translation_key="cpu_temperature",
         device_class=SensorDeviceClass.TEMPERATURE,
         native_unit_of_measurement=UnitOfTemperature.CELSIUS,
-        value_fn=lambda data: _temperature_value(data, 2),
+        value_fn=lambda snapshot: _temperature_value(snapshot, 2),
     ),
     MadvrEnvySensorDescription(
         key="mainboard_temperature",
         translation_key="mainboard_temperature",
         device_class=SensorDeviceClass.TEMPERATURE,
         native_unit_of_measurement=UnitOfTemperature.CELSIUS,
-        value_fn=lambda data: _temperature_value(data, 3),
+        value_fn=lambda snapshot: _temperature_value(snapshot, 3),
     ),
     MadvrEnvySensorDescription(
         key="version",
         translation_key="version",
         icon="mdi:identifier",
         entity_registry_enabled_default=False,
-        value_fn=lambda data: data.get("version"),
+        value_fn=lambda snapshot: snapshot.version,
     ),
     MadvrEnvySensorDescription(
         key="current_menu",
         translation_key="current_menu",
         icon="mdi:menu",
         entity_registry_enabled_default=False,
-        value_fn=lambda data: data.get("current_menu"),
+        value_fn=lambda snapshot: snapshot.current_menu,
     ),
     MadvrEnvySensorDescription(
         key="aspect_ratio_mode",
         translation_key="aspect_ratio_mode",
         icon="mdi:aspect-ratio",
-        value_fn=lambda data: data.get("aspect_ratio_mode"),
+        value_fn=lambda snapshot: snapshot.aspect_ratio_mode,
     ),
     MadvrEnvySensorDescription(
         key="incoming_signal_resolution",
         translation_key="incoming_signal_resolution",
         icon="mdi:video-input-hdmi",
-        value_fn=lambda data: _nested_value(data, "incoming_signal", "resolution"),
+        value_fn=lambda snapshot: _nested_value(snapshot.incoming_signal, "resolution"),
     ),
     MadvrEnvySensorDescription(
         key="incoming_signal_frame_rate",
         translation_key="incoming_signal_frame_rate",
         icon="mdi:speedometer",
-        value_fn=lambda data: _nested_value(data, "incoming_signal", "frame_rate"),
+        value_fn=lambda snapshot: _nested_value(snapshot.incoming_signal, "frame_rate"),
     ),
     MadvrEnvySensorDescription(
         key="incoming_signal_aspect_ratio",
         translation_key="incoming_signal_aspect_ratio",
         icon="mdi:aspect-ratio",
-        value_fn=lambda data: _nested_value(data, "incoming_signal", "aspect_ratio"),
+        value_fn=lambda snapshot: _nested_value(snapshot.incoming_signal, "aspect_ratio"),
     ),
     MadvrEnvySensorDescription(
         key="incoming_signal_hdr_mode",
         translation_key="incoming_signal_hdr_mode",
         icon="mdi:brightness-6",
-        value_fn=lambda data: _nested_value(data, "incoming_signal", "hdr_mode"),
+        value_fn=lambda snapshot: _nested_value(snapshot.incoming_signal, "hdr_mode"),
     ),
     MadvrEnvySensorDescription(
         key="outgoing_signal_resolution",
         translation_key="outgoing_signal_resolution",
         icon="mdi:video-output",
-        value_fn=lambda data: _nested_value(data, "outgoing_signal", "resolution"),
+        value_fn=lambda snapshot: _nested_value(snapshot.outgoing_signal, "resolution"),
     ),
     MadvrEnvySensorDescription(
         key="outgoing_signal_frame_rate",
         translation_key="outgoing_signal_frame_rate",
         icon="mdi:speedometer-medium",
-        value_fn=lambda data: _nested_value(data, "outgoing_signal", "frame_rate"),
+        value_fn=lambda snapshot: _nested_value(snapshot.outgoing_signal, "frame_rate"),
     ),
     MadvrEnvySensorDescription(
         key="outgoing_signal_hdr_mode",
         translation_key="outgoing_signal_hdr_mode",
         icon="mdi:brightness-5",
-        value_fn=lambda data: _nested_value(data, "outgoing_signal", "hdr_mode"),
+        value_fn=lambda snapshot: _nested_value(snapshot.outgoing_signal, "hdr_mode"),
     ),
     MadvrEnvySensorDescription(
         key="aspect_ratio_name",
         translation_key="aspect_ratio_name",
         icon="mdi:format-letter-case",
-        value_fn=lambda data: _nested_value(data, "aspect_ratio", "name"),
+        value_fn=lambda snapshot: _nested_value(snapshot.aspect_ratio, "name"),
     ),
     MadvrEnvySensorDescription(
         key="aspect_ratio_decimal",
         translation_key="aspect_ratio_decimal",
         icon="mdi:aspect-ratio",
-        value_fn=lambda data: _ratio_decimal_value(data, "aspect_ratio"),
+        value_fn=lambda snapshot: _ratio_decimal_value(snapshot.aspect_ratio),
     ),
     MadvrEnvySensorDescription(
         key="masking_ratio_decimal",
         translation_key="masking_ratio_decimal",
         icon="mdi:crop",
-        value_fn=lambda data: _ratio_decimal_value(data, "masking_ratio"),
+        value_fn=lambda snapshot: _ratio_decimal_value(snapshot.masking_ratio),
     ),
     MadvrEnvySensorDescription(
         key="active_profile",
         translation_key="active_profile",
         icon="mdi:playlist-play",
-        value_fn=lambda data: _active_profile_value(data),
+        value_fn=lambda snapshot: _active_profile_value(snapshot),
     ),
 )
 
@@ -172,21 +174,17 @@ class MadvrEnvySensor(MadvrEnvyEntity, SensorEntity):
         self.entity_description = description
 
     @property
-    def available(self) -> bool:
-        return self._entity_state_available
-
-    @property
     def native_value(self) -> Any:
-        if not self._transport_available and self.entity_description.key != "power_state":
-            return None
         if self.entity_description.key == "power_state":
-            return self.coordinator.power_state.value
-        return self.entity_description.value_fn(self.data)
+            return self.power_state.value
+        if not self.is_awake:
+            return None
+        return self.entity_description.value_fn(self.snapshot)
 
 
-def _temperature_value(data: dict[str, Any], index: int) -> int | None:
-    temperatures = data.get("temperatures")
-    if not isinstance(temperatures, (tuple, list)):
+def _temperature_value(snapshot: MadvrEnvyRuntimeState, index: int) -> int | None:
+    temperatures = snapshot.temperatures
+    if temperatures is None:
         return None
     if len(temperatures) <= index:
         return None
@@ -197,45 +195,37 @@ def _temperature_value(data: dict[str, Any], index: int) -> int | None:
     return None
 
 
-def _active_profile_value(data: dict[str, Any]) -> str | None:
-    group = data.get("active_profile_group")
-    index = data.get("active_profile_index")
-    if not isinstance(group, str) or not isinstance(index, int):
+def _active_profile_value(snapshot: MadvrEnvyRuntimeState) -> str | None:
+    group = snapshot.active_profile_group
+    index = snapshot.active_profile_index
+    if group is None or index is None:
         return None
 
-    groups = data.get("profile_groups")
     group_name = group
-    if isinstance(groups, dict):
-        value = groups.get(group)
-        if isinstance(value, str) and value:
-            group_name = value
+    value = snapshot.profile_groups.get(group)
+    if value:
+        group_name = value
 
-    profiles = data.get("profiles")
     profile_name = str(index)
-    if isinstance(profiles, dict):
-        key = f"{group}_{index}"
-        value = profiles.get(key)
-        if not isinstance(value, str):
-            value = profiles.get(str(index))
-        if isinstance(value, str) and value:
-            profile_name = value
+    key = f"{group}_{index}"
+    value = snapshot.profiles.get(key)
+    if value:
+        profile_name = value
 
     return f"{group_name}: {profile_name}"
 
 
-def _nested_value(data: dict[str, Any], parent_key: str, nested_key: str) -> str | None:
-    parent = data.get(parent_key)
-    if not isinstance(parent, dict):
+def _nested_value(data: dict[str, str] | dict[str, str | float] | None, nested_key: str) -> str | None:
+    if data is None:
         return None
-    value = parent.get(nested_key)
+    value = data.get(nested_key)
     if isinstance(value, str):
         return value
     return None
 
 
-def _ratio_decimal_value(data: dict[str, Any], ratio_key: str) -> float | None:
-    ratio = data.get(ratio_key)
-    if not isinstance(ratio, dict):
+def _ratio_decimal_value(ratio: dict[str, str | float] | dict[str, float] | None) -> float | None:
+    if ratio is None:
         return None
     value = ratio.get("decimal_ratio")
     if isinstance(value, (int, float)):
