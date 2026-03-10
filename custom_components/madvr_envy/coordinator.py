@@ -18,6 +18,7 @@ from .const import (
     DEFAULT_SYNC_TIMEOUT,
     DOMAIN,
 )
+from .lifecycle import PowerState, normalize_power_state
 
 
 class MadvrEnvyCoordinator(DataUpdateCoordinator[dict[str, Any]]):
@@ -47,6 +48,7 @@ class MadvrEnvyCoordinator(DataUpdateCoordinator[dict[str, Any]]):
         self._client_callback_registered = False
         self._started = False
         self._bootstrap_retry_task: asyncio.Task[None] | None = None
+        self._power_state_override: PowerState | None = None
 
     async def async_start(self) -> None:
         """Start client and register callbacks once."""
@@ -110,7 +112,7 @@ class MadvrEnvyCoordinator(DataUpdateCoordinator[dict[str, Any]]):
 
     def _handle_adapter_update(self, snapshot, deltas, events) -> None:  # noqa: ANN001
         update = self._dispatcher.handle_adapter_update(snapshot, deltas, events)
-        self.async_set_updated_data(update.coordinator_data)
+        self.async_set_updated_data(self._with_lifecycle(update.coordinator_data))
 
     def _handle_client_event(self, event: str, _message: object | None = None) -> None:
         if event == "disconnected":
@@ -124,12 +126,12 @@ class MadvrEnvyCoordinator(DataUpdateCoordinator[dict[str, Any]]):
         if self.data is not None:
             data = dict(self.data)
             data["available"] = available
-            return data
+            return self._with_lifecycle(data)
 
         snapshot, _, _ = self._adapter.update(self.client.state)
         data = coordinator_payload(snapshot)
         data["available"] = available
-        return data
+        return self._with_lifecycle(data)
 
     async def _prime_state(self) -> None:
         """Best-effort startup priming for richer initial entity state."""
@@ -151,7 +153,36 @@ class MadvrEnvyCoordinator(DataUpdateCoordinator[dict[str, Any]]):
         """Prime extra state and publish one synced snapshot."""
         await self._prime_state()
         snapshot, _, _ = self._adapter.update(self.client.state)
-        self.async_set_updated_data(coordinator_payload(snapshot))
+        self.async_set_updated_data(self._with_lifecycle(coordinator_payload(snapshot)))
+
+    @property
+    def power_state(self) -> PowerState:
+        """Return the effective lifecycle state."""
+        if self._power_state_override is not None:
+            return self._power_state_override
+
+        if self.data is not None:
+            return normalize_power_state(self.data.get("power_state"))
+
+        snapshot, _, _ = self._adapter.update(self.client.state)
+        return normalize_power_state(coordinator_payload(snapshot).get("power_state"))
+
+    def set_power_state_override(self, state: PowerState | None) -> None:
+        """Force a temporary lifecycle state until device state catches up."""
+        self._power_state_override = state
+        if self.data is not None:
+            self.async_set_updated_data(self._with_lifecycle(dict(self.data)))
+
+    def _with_lifecycle(self, data: dict[str, Any]) -> dict[str, Any]:
+        """Apply sticky lifecycle semantics to a coordinator payload."""
+        actual = normalize_power_state(data.get("power_state"))
+        if actual is not PowerState.UNKNOWN:
+            self._power_state_override = None
+
+        effective = self._power_state_override or actual
+        merged = dict(data)
+        merged["power_state"] = effective.value
+        return merged
 
     def _schedule_bootstrap_retry(self) -> None:
         """Retry bootstrap until the client reaches a synced state."""

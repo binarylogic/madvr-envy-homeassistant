@@ -5,6 +5,7 @@ from __future__ import annotations
 from homeassistant.components.select import SelectEntity
 from homeassistant.config_entries import ConfigEntry
 from homeassistant.core import HomeAssistant
+from homeassistant.helpers import entity_registry as er
 from homeassistant.helpers.entity_platform import AddEntitiesCallback
 
 from madvr_envy.integration_bridge import (
@@ -18,6 +19,7 @@ from madvr_envy.integration_bridge import (
 )
 
 from .entity import MadvrEnvyEntity
+from .lifecycle import PowerState
 
 
 async def async_setup_entry(
@@ -31,12 +33,8 @@ async def async_setup_entry(
         MadvrEnvyActiveProfileSelect(coordinator),
     ]
 
-    profile_groups = coordinator.data.get("profile_groups", {}) if coordinator.data else {}
-    if isinstance(profile_groups, dict):
-        for group_id in profile_groups:
-            if not isinstance(group_id, str):
-                continue
-            entities.append(MadvrEnvyProfileGroupSelect(coordinator, group_id))
+    for group_id in _known_profile_group_ids(hass, entry, coordinator):
+        entities.append(MadvrEnvyProfileGroupSelect(coordinator, group_id))
 
     async_add_entities(entities)
 
@@ -53,7 +51,7 @@ class MadvrEnvyPowerModeSelect(MadvrEnvyEntity, SelectEntity):
 
     @property
     def available(self) -> bool:
-        return self._transport_available
+        return self._entity_state_available
 
     @property
     def current_option(self) -> str | None:
@@ -64,13 +62,25 @@ class MadvrEnvyPowerModeSelect(MadvrEnvyEntity, SelectEntity):
 
     async def async_select_option(self, option: str) -> None:
         if option == "on":
-            await self._execute("KeyPress POWER", lambda: self._client.key_press("POWER"))
+            await self._execute_with_power_state(
+                "KeyPress POWER",
+                None,
+                lambda: self._client.key_press("POWER"),
+            )
             return
         if option == "standby":
-            await self._execute("Standby", self._client.standby)
+            await self._execute_with_power_state(
+                "Standby",
+                PowerState.STANDBY,
+                self._client.standby,
+            )
             return
         if option == "off":
-            await self._execute("PowerOff", self._client.power_off)
+            await self._execute_with_power_state(
+                "PowerOff",
+                PowerState.OFF,
+                self._client.power_off,
+            )
 
 
 class MadvrEnvyActiveProfileSelect(MadvrEnvyEntity, SelectEntity):
@@ -81,6 +91,10 @@ class MadvrEnvyActiveProfileSelect(MadvrEnvyEntity, SelectEntity):
 
     def __init__(self, coordinator) -> None:  # noqa: ANN001
         super().__init__(coordinator, "active_profile")
+
+    @property
+    def available(self) -> bool:
+        return self._entity_state_available
 
     @property
     def options(self) -> list[str]:
@@ -122,6 +136,10 @@ class MadvrEnvyProfileGroupSelect(MadvrEnvyEntity, SelectEntity):
     def __init__(self, coordinator, group_id: str) -> None:  # noqa: ANN001
         self._group_id = group_id
         super().__init__(coordinator, f"profile_group_{group_id}")
+
+    @property
+    def available(self) -> bool:
+        return self._entity_state_available
 
     @property
     def name(self) -> str:
@@ -173,3 +191,34 @@ def _parse_profile_id(profile_id: str, fallback_group: object) -> tuple[str, int
 
 def _build_profile_options(data: dict[str, object]) -> list[ProfileOption]:
     return lib_build_profile_options(data)
+
+
+def _known_profile_group_ids(
+    hass: HomeAssistant,
+    entry: ConfigEntry,
+    coordinator,
+) -> list[str]:  # noqa: ANN001
+    group_ids: list[str] = []
+    seen: set[str] = set()
+
+    profile_groups = coordinator.data.get("profile_groups", {}) if coordinator.data else {}
+    if isinstance(profile_groups, dict):
+        for group_id in profile_groups:
+            if isinstance(group_id, str) and group_id not in seen:
+                seen.add(group_id)
+                group_ids.append(group_id)
+
+    entry_id = getattr(entry, "entry_id", None)
+    if entry_id is not None:
+        registry = er.async_get(hass)
+        prefix = f"{coordinator.device_identifier}_profile_group_"
+        for registry_entry in er.async_entries_for_config_entry(registry, entry_id):
+            unique_id = registry_entry.unique_id
+            if not unique_id.startswith(prefix):
+                continue
+            group_id = unique_id.removeprefix(prefix)
+            if group_id and group_id not in seen:
+                seen.add(group_id)
+                group_ids.append(group_id)
+
+    return group_ids

@@ -6,6 +6,8 @@ from types import SimpleNamespace
 
 import pytest
 from homeassistant.exceptions import HomeAssistantError
+from homeassistant.helpers import entity_registry as er
+from pytest_homeassistant_custom_component.common import MockConfigEntry
 
 from custom_components.madvr_envy import binary_sensor, button, remote, select, sensor, switch
 from custom_components.madvr_envy.binary_sensor import BINARY_SENSORS, MadvrEnvyBinarySensor
@@ -141,5 +143,38 @@ async def test_binary_sensor_returns_unknown_during_expected_power_down(hass, mo
     entity = MadvrEnvyBinarySensor(coordinator, BINARY_SENSORS[0])
     assert entity.available is True
     assert entity.is_on is None
+
+    await coordinator.async_shutdown()
+
+
+async def test_select_setup_restores_profile_groups_from_entity_registry(hass, mock_envy_client):
+    """Test offline startup restores profile-group entities from the registry."""
+    coordinator = MadvrEnvyCoordinator(hass, mock_envy_client)
+    await coordinator.async_start()
+    coordinator.async_set_updated_data({**coordinator.data, "profile_groups": {}})
+
+    entry = MockConfigEntry(
+        domain="madvr_envy",
+        title="madVR Envy",
+        data={},
+        options={"enable_advanced_entities": True},
+        unique_id="madvr_envy_192.168.1.100_44077",
+    )
+    entry.runtime_data = SimpleNamespace(coordinator=coordinator)
+    registry = er.async_get(hass)
+    registry.async_get_or_create(
+        "select",
+        "madvr_envy",
+        f"{coordinator.device_identifier}_profile_group_custom",
+        config_entry=entry,
+    )
+
+    added_select: list[object] = []
+    await select.async_setup_entry(hass, entry, added_select.extend)
+
+    assert any(
+        isinstance(entity, select.MadvrEnvyProfileGroupSelect) and entity._group_id == "custom"
+        for entity in added_select
+    )
 
     await coordinator.async_shutdown()

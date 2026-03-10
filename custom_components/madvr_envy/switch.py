@@ -28,7 +28,13 @@ class MadvrEnvyToneMapSwitch(MadvrEnvyEntity, SwitchEntity):
         super().__init__(coordinator, "tone_map")
 
     @property
+    def available(self) -> bool:
+        return self._entity_state_available
+
+    @property
     def is_on(self) -> bool | None:
+        if not self._transport_available:
+            return None
         value = self.data.get("tone_map_enabled")
         if value is None:
             return None
