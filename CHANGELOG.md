@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.4.1](https://github.com/binarylogic/madvr-envy-homeassistant/compare/v0.4.0...v0.4.1) (2026-03-10)
+
+
+### Bug Fixes
+
+* split wake and live power control capabilities ([#13](https://github.com/binarylogic/madvr-envy-homeassistant/issues/13)) ([a2d2296](https://github.com/binarylogic/madvr-envy-homeassistant/commit/a2d2296a6839bc14b0e2c833cc37111150269131))
+
 ## [0.4.0](https://github.com/binarylogic/madvr-envy-homeassistant/compare/v0.3.4...v0.4.0) (2026-03-10)
 
 
