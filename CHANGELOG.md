@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.4.0](https://github.com/binarylogic/madvr-envy-homeassistant/compare/v0.3.4...v0.4.0) (2026-03-10)
+
+
+### Features
+
+* rebuild envy lifecycle and wake handling ([#11](https://github.com/binarylogic/madvr-envy-homeassistant/issues/11)) ([2d1b57d](https://github.com/binarylogic/madvr-envy-homeassistant/commit/2d1b57dc09d27b89791cb6db7f77186e67e3dca7))
+
 ## [0.3.4](https://github.com/binarylogic/madvr-envy-homeassistant/compare/v0.3.3...v0.3.4) (2026-03-10)
 
 
