@@ -119,8 +119,8 @@ async def test_power_mode_select_calls_expected_commands(hass, mock_envy_client)
     await coordinator.async_shutdown()
 
 
-async def test_power_entities_stay_available_during_expected_power_down(hass, mock_envy_client):
-    """Test primary lifecycle entities stay available in standby/off disconnects."""
+async def test_power_sensor_stays_available_during_expected_power_down(hass, mock_envy_client):
+    """Test the lifecycle sensor stays explicit through standby/off disconnects."""
     coordinator = MadvrEnvyCoordinator(hass, mock_envy_client)
     await coordinator.async_start()
 
@@ -139,13 +139,32 @@ async def test_power_entities_stay_available_during_expected_power_down(hass, mo
     gpu_sensor = MadvrEnvySensor(
         coordinator, next(item for item in SENSORS if item.key == "gpu_temperature")
     )
-    power_mode = MadvrEnvyPowerModeSelect(coordinator)
-
     assert power_sensor.available is True
     assert power_sensor.native_value == "standby"
     assert gpu_sensor.available is True
     assert gpu_sensor.native_value is None
-    assert power_mode.available is True
+
+    await coordinator.async_shutdown()
+
+
+async def test_power_mode_select_is_unavailable_when_transport_is_down(
+    hass, mock_envy_client
+):
+    """Test the power select does not claim control when the Envy is disconnected."""
+    coordinator = MadvrEnvyCoordinator(hass, mock_envy_client)
+    await coordinator.async_start()
+
+    coordinator.async_set_updated_data(
+        {
+            **coordinator.data,
+            "available": False,
+            "power_state": "standby",
+        }
+    )
+
+    power_mode = MadvrEnvyPowerModeSelect(coordinator)
+
+    assert power_mode.available is False
     assert power_mode.current_option == "standby"
 
     await coordinator.async_shutdown()

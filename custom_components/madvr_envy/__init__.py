@@ -7,10 +7,8 @@ from typing import Any
 from homeassistant.config_entries import ConfigEntry
 from homeassistant.const import CONF_HOST, CONF_PORT, EVENT_HOMEASSISTANT_STOP
 from homeassistant.core import Event, HomeAssistant
-from homeassistant.exceptions import ConfigEntryNotReady
 
 from madvr_envy import MadvrEnvyClient
-from madvr_envy import exceptions as envy_exceptions
 
 from .const import (
     DEFAULT_COMMAND_TIMEOUT,
@@ -69,17 +67,12 @@ async def async_setup_entry(hass: HomeAssistant, entry: MadvrEnvyConfigEntry) ->
         hass,
         client,
         sync_timeout=_get_float_option(entry, OPT_SYNC_TIMEOUT, DEFAULT_SYNC_TIMEOUT),
+        device_identifier=_device_identifier(entry),
+        device_label=host,
     )
 
     try:
         await coordinator.async_start()
-    except (
-        envy_exceptions.ConnectionFailedError,
-        envy_exceptions.ConnectionTimeoutError,
-        TimeoutError,
-    ) as err:
-        await coordinator.async_shutdown()
-        raise ConfigEntryNotReady(f"Could not connect to madVR Envy at {host}:{port}") from err
     except Exception:
         await coordinator.async_shutdown()
         raise
@@ -117,3 +110,26 @@ async def async_reload_entry(hass: HomeAssistant, entry: MadvrEnvyConfigEntry) -
 def _get_float_option(entry: ConfigEntry, key: str, default: float) -> float:
     value: Any = entry.options.get(key, default)
     return float(value)
+
+
+def _device_identifier(entry: ConfigEntry) -> str:
+    """Preserve legacy entity ids across online and offline startups."""
+    host = str(entry.data[CONF_HOST]).strip()
+    port = int(entry.data[CONF_PORT])
+    fallback = f"{host}:{port}"
+
+    unique_id = entry.unique_id
+    if not unique_id:
+        return fallback
+
+    host_port_unique_id = f"{DOMAIN}_{host}_{port}"
+    if unique_id == host_port_unique_id:
+        return fallback
+
+    prefix = f"{DOMAIN}_"
+    if unique_id.startswith(prefix):
+        suffix = unique_id[len(prefix) :]
+        if suffix:
+            return suffix
+
+    return unique_id

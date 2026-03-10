@@ -53,7 +53,7 @@ class MadvrEnvyPowerModeSelect(MadvrEnvyEntity, SelectEntity):
 
     @property
     def available(self) -> bool:
-        return self._lifecycle_available
+        return self._transport_available
 
     @property
     def current_option(self) -> str | None:
