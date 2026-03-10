@@ -147,9 +147,7 @@ async def test_power_sensor_stays_available_during_expected_power_down(hass, moc
     await coordinator.async_shutdown()
 
 
-async def test_power_mode_select_is_unavailable_when_transport_is_down(
-    hass, mock_envy_client
-):
+async def test_power_mode_select_is_unavailable_when_transport_is_down(hass, mock_envy_client):
     """Test the power select does not claim control when the Envy is disconnected."""
     coordinator = MadvrEnvyCoordinator(hass, mock_envy_client)
     await coordinator.async_start()

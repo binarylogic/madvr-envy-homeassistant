@@ -61,9 +61,7 @@ async def test_setup_and_unload_entry(hass, mock_config_entry, mock_envy_client)
     assert mock_envy_client.stop.await_count >= 1
 
 
-async def test_setup_entry_stays_loaded_on_sync_timeout(
-    hass, mock_config_entry, mock_envy_client
-):
+async def test_setup_entry_stays_loaded_on_sync_timeout(hass, mock_config_entry, mock_envy_client):
     """Test setup stays loaded and retries if initial sync times out."""
     mock_envy_client.wait_synced.side_effect = TimeoutError
     mock_envy_client.state._seen_welcome = False
