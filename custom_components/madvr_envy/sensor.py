@@ -177,10 +177,7 @@ class MadvrEnvySensor(MadvrEnvyEntity, SensorEntity):
 
     @property
     def native_value(self) -> Any:
-        if (
-            not self._transport_available
-            and self.entity_description.key != "power_state"
-        ):
+        if not self._transport_available and self.entity_description.key != "power_state":
             return None
         if self.entity_description.key == "power_state":
             return self.coordinator.power_state.value
