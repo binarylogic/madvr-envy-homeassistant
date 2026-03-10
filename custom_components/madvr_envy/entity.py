@@ -2,7 +2,7 @@
 
 from __future__ import annotations
 
-from collections.abc import Callable
+from collections.abc import Awaitable, Callable
 from typing import Any
 
 from homeassistant.exceptions import HomeAssistantError
@@ -14,7 +14,8 @@ from madvr_envy import exceptions
 
 from .const import DOMAIN, MANUFACTURER, MODEL, NAME
 from .coordinator import MadvrEnvyCoordinator
-from .lifecycle import PowerState, normalize_power_state
+from .lifecycle import ConnectionState, PowerState
+from .models import MadvrEnvyRuntimeState
 
 
 class MadvrEnvyEntity(CoordinatorEntity[MadvrEnvyCoordinator]):
@@ -36,43 +37,43 @@ class MadvrEnvyEntity(CoordinatorEntity[MadvrEnvyCoordinator]):
             name=f"{NAME} ({coordinator.device_label})",
             manufacturer=MANUFACTURER,
             model=MODEL,
-            sw_version=self.data.get("version"),
+            sw_version=self.snapshot.version,
             configuration_url=f"http://{self._client.host}",
         )
 
     @property
     def available(self) -> bool:
-        return bool(self.data.get("available"))
-
-    @property
-    def _transport_available(self) -> bool:
-        return bool(self.data.get("available"))
-
-    @property
-    def _power_state(self) -> str | None:
-        return normalize_power_state(self.data.get("power_state")).value
-
-    @property
-    def _expected_powered_down(self) -> bool:
-        return normalize_power_state(self.data.get("power_state")) in {
-            PowerState.STANDBY,
-            PowerState.OFF,
-        }
-
-    @property
-    def _lifecycle_available(self) -> bool:
-        return self._transport_available or self._expected_powered_down
-
-    @property
-    def _entity_state_available(self) -> bool:
-        """Return True for entities that should remain present with unknown values."""
         return True
 
     @property
-    def data(self) -> dict[str, Any]:
+    def snapshot(self) -> MadvrEnvyRuntimeState:
         if self.coordinator.data is None:
-            return {}
+            return MadvrEnvyRuntimeState()
         return self.coordinator.data
+
+    @property
+    def power_state(self) -> PowerState:
+        return self.snapshot.power_state
+
+    @property
+    def connection_state(self) -> ConnectionState:
+        return self.snapshot.connection_state
+
+    @property
+    def can_send_live_commands(self) -> bool:
+        return self.snapshot.can_send_live_commands
+
+    @property
+    def can_wake(self) -> bool:
+        return self.snapshot.can_wake
+
+    @property
+    def power_control_available(self) -> bool:
+        return self.snapshot.power_control_available
+
+    @property
+    def is_awake(self) -> bool:
+        return self.power_state is PowerState.ON and self.can_send_live_commands
 
     @property
     def _device_slug(self) -> str:
@@ -81,7 +82,7 @@ class MadvrEnvyEntity(CoordinatorEntity[MadvrEnvyCoordinator]):
             return slug
         return "envy"
 
-    async def _execute(self, command_name: str, command: Callable[[], Any]) -> None:
+    async def _execute(self, command_name: str, command: Callable[[], Awaitable[Any]]) -> None:
         try:
             await command()
         except (
@@ -92,16 +93,3 @@ class MadvrEnvyEntity(CoordinatorEntity[MadvrEnvyCoordinator]):
             exceptions.ConnectionTimeoutError,
         ) as err:
             raise HomeAssistantError(f"{command_name} failed: {err}") from err
-
-    async def _execute_with_power_state(
-        self,
-        command_name: str,
-        power_state: PowerState | None,
-        command: Callable[[], Any],
-    ) -> None:
-        self.coordinator.set_power_state_override(power_state)
-        try:
-            await self._execute(command_name, command)
-        except Exception:
-            self.coordinator.set_power_state_override(None)
-            raise

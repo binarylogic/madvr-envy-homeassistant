@@ -10,7 +10,7 @@ from custom_components.madvr_envy.coordinator import MadvrEnvyCoordinator
 
 async def test_coordinator_start_stop(hass, mock_envy_client):
     """Test coordinator startup and shutdown lifecycle."""
-    coordinator = MadvrEnvyCoordinator(hass, mock_envy_client, sync_timeout=5.0)
+    coordinator = MadvrEnvyCoordinator(hass, mock_envy_client, entry_id="test-entry", sync_timeout=5.0)
 
     await coordinator.async_start()
 
@@ -24,8 +24,8 @@ async def test_coordinator_start_stop(hass, mock_envy_client):
     mock_envy_client.enum_profiles_collect.assert_awaited_once_with("1")
 
     assert coordinator.data is not None
-    assert coordinator.data["available"] is True
-    assert coordinator.data["power_state"] == "on"
+    assert coordinator.data.can_send_live_commands is True
+    assert coordinator.data.power_state.value == "on"
 
     await coordinator.async_shutdown()
 
@@ -38,7 +38,7 @@ async def test_coordinator_push_update_and_event_forwarding(hass, mock_envy_clie
     """Test bridge updates update coordinator state and emit events."""
     captured = async_capture_events(hass, "madvr_envy.system_action")
 
-    coordinator = MadvrEnvyCoordinator(hass, mock_envy_client)
+    coordinator = MadvrEnvyCoordinator(hass, mock_envy_client, entry_id="test-entry")
     await coordinator.async_start()
 
     callback = mock_envy_client._test_callbacks["adapter"]
@@ -82,8 +82,8 @@ async def test_coordinator_push_update_and_event_forwarding(hass, mock_envy_clie
     await hass.async_block_till_done()
 
     assert coordinator.data is not None
-    assert coordinator.data["version"] == "1.0.1"
-    assert coordinator.data["tone_map_enabled"] is False
+    assert coordinator.data.version == "1.0.1"
+    assert coordinator.data.tone_map_enabled is False
     assert captured[-1].data == {"action": "Restart"}
 
     await coordinator.async_shutdown()
@@ -91,16 +91,16 @@ async def test_coordinator_push_update_and_event_forwarding(hass, mock_envy_clie
 
 async def test_coordinator_marks_unavailable_on_disconnect(hass, mock_envy_client):
     """Test disconnect events force availability false."""
-    coordinator = MadvrEnvyCoordinator(hass, mock_envy_client)
+    coordinator = MadvrEnvyCoordinator(hass, mock_envy_client, entry_id="test-entry")
     await coordinator.async_start()
 
     client_callback = mock_envy_client._test_callbacks["client"]
     client_callback("disconnected", None)
     assert coordinator.data is not None
-    assert coordinator.data["available"] is False
+    assert coordinator.data.can_send_live_commands is False
 
     client_callback("connected", None)
-    assert coordinator.data["available"] is True
+    assert coordinator.data.can_send_live_commands is True
 
     await coordinator.async_shutdown()
 
@@ -108,10 +108,10 @@ async def test_coordinator_marks_unavailable_on_disconnect(hass, mock_envy_clien
 async def test_coordinator_prime_failure_is_non_fatal(hass, mock_envy_client):
     """Test startup continues when priming commands fail."""
     mock_envy_client.enum_profile_groups_collect.side_effect = TimeoutError
-    coordinator = MadvrEnvyCoordinator(hass, mock_envy_client)
+    coordinator = MadvrEnvyCoordinator(hass, mock_envy_client, entry_id="test-entry")
 
     await coordinator.async_start()
     assert coordinator.data is not None
-    assert coordinator.data["available"] is True
+    assert coordinator.data.can_send_live_commands is True
 
     await coordinator.async_shutdown()

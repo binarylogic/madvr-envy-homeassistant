@@ -32,22 +32,18 @@ class MadvrEnvyRemote(MadvrEnvyEntity, RemoteEntity):
         super().__init__(coordinator, "remote")
 
     @property
+    def available(self) -> bool:
+        return self.power_control_available
+
+    @property
     def is_on(self) -> bool:
-        return self.available and self.data.get("power_state") != "off"
+        return self.power_state is PowerState.ON
 
     async def async_turn_on(self, **kwargs: Any) -> None:
-        await self._execute_with_power_state(
-            "KeyPress POWER",
-            None,
-            lambda: self._client.key_press("POWER"),
-        )
+        await self._execute("PowerOn", self.coordinator.async_power_on)
 
     async def async_turn_off(self, **kwargs: Any) -> None:
-        await self._execute_with_power_state(
-            "Standby",
-            PowerState.STANDBY,
-            self._client.standby,
-        )
+        await self._execute("Standby", self.coordinator.async_standby)
 
     async def async_send_command(self, command: Any, **kwargs: Any) -> None:
         for operation in iter_remote_operations(command):

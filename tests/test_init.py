@@ -40,7 +40,7 @@ async def test_setup_and_unload_entry(hass, mock_config_entry, mock_envy_client)
         runtime_data = mock_config_entry.runtime_data
         assert runtime_data.client is mock_envy_client
         assert runtime_data.coordinator.data is not None
-        assert runtime_data.coordinator.data["power_state"] == "on"
+        assert runtime_data.coordinator.data.power_state.value == "on"
         assert DOMAIN in hass.data
         assert mock_config_entry.entry_id in hass.data[DOMAIN]
         assert hass.services.has_service(DOMAIN, SERVICE_PRESS_KEY)
@@ -82,7 +82,7 @@ async def test_setup_entry_stays_loaded_on_sync_timeout(hass, mock_config_entry,
 
     runtime_data = mock_config_entry.runtime_data
     assert runtime_data.coordinator.data is not None
-    assert runtime_data.coordinator.data["available"] is False
+    assert runtime_data.coordinator.data.can_send_live_commands is False
     assert DOMAIN in hass.data
     assert hass.services.has_service(DOMAIN, SERVICE_PRESS_KEY)
     assert hass.services.has_service(DOMAIN, SERVICE_ACTIVATE_PROFILE)
@@ -116,7 +116,7 @@ async def test_setup_entry_stays_loaded_on_initial_connection_failure(
 
     runtime_data = mock_config_entry.runtime_data
     assert runtime_data.coordinator.data is not None
-    assert runtime_data.coordinator.data["available"] is False
+    assert runtime_data.coordinator.data.can_send_live_commands is False
     assert DOMAIN in hass.data
     mock_envy_client.stop.assert_not_called()
 

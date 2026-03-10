@@ -13,7 +13,7 @@
     "madvr_envy"
   ],
   "requirements": [
-    "madvr-envy>=0.1.7"
+    "madvr-envy>=0.2.0"
   ],
   "version": "0.3.4"
 }

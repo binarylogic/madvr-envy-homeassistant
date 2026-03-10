@@ -111,6 +111,8 @@ def mock_envy_client() -> MagicMock:
 
     client.tone_map_on = AsyncMock()
     client.tone_map_off = AsyncMock()
+    client.power_on = AsyncMock()
+    client.wake = AsyncMock()
     client.standby = AsyncMock()
     client.power_off = AsyncMock()
     client.hotplug = AsyncMock()

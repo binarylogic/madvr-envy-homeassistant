@@ -12,12 +12,13 @@ from homeassistant.helpers.entity_platform import AddEntitiesCallback
 
 from .const import OPT_ENABLE_ADVANCED_ENTITIES
 from .entity import MadvrEnvyEntity
-from .lifecycle import PowerState
 
 
 @dataclass(frozen=True, kw_only=True)
 class MadvrEnvyButtonDescription(ButtonEntityDescription):
     press_fn: Callable[[MadvrEnvyEntity], Awaitable[None]]
+    live_command_only: bool = True
+    power_command: bool = False
 
 
 BUTTONS: tuple[MadvrEnvyButtonDescription, ...] = (
@@ -25,31 +26,23 @@ BUTTONS: tuple[MadvrEnvyButtonDescription, ...] = (
         key="power_on",
         translation_key="power_on",
         icon="mdi:power-on",
-        press_fn=lambda entity: entity._execute_with_power_state(
-            "KeyPress POWER",
-            None,
-            lambda: entity._client.key_press("POWER"),
-        ),
+        press_fn=lambda entity: entity._execute("PowerOn", entity.coordinator.async_power_on),
+        live_command_only=False,
+        power_command=True,
     ),
     MadvrEnvyButtonDescription(
         key="standby",
         translation_key="standby",
         icon="mdi:sleep",
-        press_fn=lambda entity: entity._execute_with_power_state(
-            "Standby",
-            PowerState.STANDBY,
-            entity._client.standby,
-        ),
+        press_fn=lambda entity: entity._execute("Standby", entity.coordinator.async_standby),
+        power_command=True,
     ),
     MadvrEnvyButtonDescription(
         key="power_off",
         translation_key="power_off",
         icon="mdi:power-off",
-        press_fn=lambda entity: entity._execute_with_power_state(
-            "PowerOff",
-            PowerState.OFF,
-            entity._client.power_off,
-        ),
+        press_fn=lambda entity: entity._execute("PowerOff", entity.coordinator.async_power_off),
+        power_command=True,
     ),
     MadvrEnvyButtonDescription(
         key="hotplug",
@@ -129,6 +122,14 @@ class MadvrEnvyButton(MadvrEnvyEntity, ButtonEntity):
     def __init__(self, coordinator, description: MadvrEnvyButtonDescription) -> None:  # noqa: ANN001
         super().__init__(coordinator, description.key)
         self.entity_description = description
+
+    @property
+    def available(self) -> bool:
+        if self.entity_description.power_command:
+            return self.power_control_available
+        if self.entity_description.live_command_only:
+            return self.can_send_live_commands
+        return True
 
     async def async_press(self) -> None:
         await self.entity_description.press_fn(self)

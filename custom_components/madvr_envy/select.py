@@ -8,15 +8,9 @@ from homeassistant.core import HomeAssistant
 from homeassistant.helpers import entity_registry as er
 from homeassistant.helpers.entity_platform import AddEntitiesCallback
 
-from madvr_envy.integration_bridge import (
-    ProfileOption,
-)
-from madvr_envy.integration_bridge import (
-    build_profile_options as lib_build_profile_options,
-)
-from madvr_envy.integration_bridge import (
-    parse_profile_id as lib_parse_profile_id,
-)
+from madvr_envy.integration_bridge import ProfileOption
+from madvr_envy.integration_bridge import build_profile_options as lib_build_profile_options
+from madvr_envy.integration_bridge import parse_profile_id as lib_parse_profile_id
 
 from .entity import MadvrEnvyEntity
 from .lifecycle import PowerState
@@ -44,43 +38,30 @@ class MadvrEnvyPowerModeSelect(MadvrEnvyEntity, SelectEntity):
 
     _attr_translation_key = "power_mode"
     _attr_icon = "mdi:power-settings"
-    _attr_options = ["on", "standby", "off"]
+    _attr_options = [PowerState.ON.value, PowerState.STANDBY.value, PowerState.OFF.value]
 
     def __init__(self, coordinator) -> None:  # noqa: ANN001
         super().__init__(coordinator, "power_mode")
 
     @property
     def available(self) -> bool:
-        return self._entity_state_available
+        return self.power_control_available
 
     @property
     def current_option(self) -> str | None:
-        power_state = self.data.get("power_state")
-        if isinstance(power_state, str) and power_state in self.options:
-            return power_state
+        if self.power_state in {PowerState.ON, PowerState.STANDBY, PowerState.OFF}:
+            return self.power_state.value
         return None
 
     async def async_select_option(self, option: str) -> None:
-        if option == "on":
-            await self._execute_with_power_state(
-                "KeyPress POWER",
-                None,
-                lambda: self._client.key_press("POWER"),
-            )
+        if option == PowerState.ON.value:
+            await self._execute("PowerOn", self.coordinator.async_power_on)
             return
-        if option == "standby":
-            await self._execute_with_power_state(
-                "Standby",
-                PowerState.STANDBY,
-                self._client.standby,
-            )
+        if option == PowerState.STANDBY.value:
+            await self._execute("Standby", self.coordinator.async_standby)
             return
-        if option == "off":
-            await self._execute_with_power_state(
-                "PowerOff",
-                PowerState.OFF,
-                self._client.power_off,
-            )
+        if option == PowerState.OFF.value:
+            await self._execute("PowerOff", self.coordinator.async_power_off)
 
 
 class MadvrEnvyActiveProfileSelect(MadvrEnvyEntity, SelectEntity):
@@ -94,7 +75,7 @@ class MadvrEnvyActiveProfileSelect(MadvrEnvyEntity, SelectEntity):
 
     @property
     def available(self) -> bool:
-        return self._entity_state_available
+        return True
 
     @property
     def options(self) -> list[str]:
@@ -102,9 +83,11 @@ class MadvrEnvyActiveProfileSelect(MadvrEnvyEntity, SelectEntity):
 
     @property
     def current_option(self) -> str | None:
-        active_group = self.data.get("active_profile_group")
-        active_index = self.data.get("active_profile_index")
-        if not isinstance(active_group, str) or not isinstance(active_index, int):
+        if not self.is_awake:
+            return None
+        active_group = self.snapshot.active_profile_group
+        active_index = self.snapshot.active_profile_index
+        if active_group is None or active_index is None:
             return None
 
         for entry in self._profile_options:
@@ -125,7 +108,7 @@ class MadvrEnvyActiveProfileSelect(MadvrEnvyEntity, SelectEntity):
 
     @property
     def _profile_options(self) -> list[ProfileOption]:
-        return _build_profile_options(self.data)
+        return _build_profile_options(self.snapshot.profile_groups, self.snapshot.profiles)
 
 
 class MadvrEnvyProfileGroupSelect(MadvrEnvyEntity, SelectEntity):
@@ -139,16 +122,13 @@ class MadvrEnvyProfileGroupSelect(MadvrEnvyEntity, SelectEntity):
 
     @property
     def available(self) -> bool:
-        return self._entity_state_available
+        return True
 
     @property
     def name(self) -> str:
-        group_names = self.data.get("profile_groups")
         label = self._group_id
-        if not isinstance(group_names, dict):
-            return f"{label} Profile"
-        value = group_names.get(self._group_id)
-        if isinstance(value, str) and value:
+        value = self.snapshot.profile_groups.get(self._group_id)
+        if value:
             label = value
         return f"{label} Profile"
 
@@ -158,9 +138,11 @@ class MadvrEnvyProfileGroupSelect(MadvrEnvyEntity, SelectEntity):
 
     @property
     def current_option(self) -> str | None:
-        active_group = self.data.get("active_profile_group")
-        active_index = self.data.get("active_profile_index")
-        if active_group != self._group_id or not isinstance(active_index, int):
+        if not self.is_awake:
+            return None
+        active_group = self.snapshot.active_profile_group
+        active_index = self.snapshot.active_profile_index
+        if active_group != self._group_id or active_index is None:
             return None
         for entry in self._group_options:
             if entry.profile_index == active_index:
@@ -181,7 +163,7 @@ class MadvrEnvyProfileGroupSelect(MadvrEnvyEntity, SelectEntity):
 
     @property
     def _group_options(self) -> list[ProfileOption]:
-        all_options = _build_profile_options(self.data)
+        all_options = _build_profile_options(self.snapshot.profile_groups, self.snapshot.profiles)
         return [entry for entry in all_options if entry.group_id == self._group_id]
 
 
@@ -189,8 +171,18 @@ def _parse_profile_id(profile_id: str, fallback_group: object) -> tuple[str, int
     return lib_parse_profile_id(profile_id, fallback_group)
 
 
-def _build_profile_options(data: dict[str, object]) -> list[ProfileOption]:
-    return lib_build_profile_options(data)
+def _build_profile_options(
+    profile_groups: dict[str, str] | dict[str, object],
+    profiles: dict[str, str] | None = None,
+) -> list[ProfileOption]:
+    if profiles is None:
+        return lib_build_profile_options(profile_groups)
+    return lib_build_profile_options(
+        {
+            "profile_groups": profile_groups,
+            "profiles": profiles,
+        }
+    )
 
 
 def _known_profile_group_ids(
@@ -201,10 +193,10 @@ def _known_profile_group_ids(
     group_ids: list[str] = []
     seen: set[str] = set()
 
-    profile_groups = coordinator.data.get("profile_groups", {}) if coordinator.data else {}
-    if isinstance(profile_groups, dict):
-        for group_id in profile_groups:
-            if isinstance(group_id, str) and group_id not in seen:
+    snapshot = coordinator.data
+    if snapshot is not None:
+        for group_id in snapshot.profile_groups:
+            if group_id not in seen:
                 seen.add(group_id)
                 group_ids.append(group_id)
 

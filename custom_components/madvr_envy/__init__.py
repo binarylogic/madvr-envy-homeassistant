@@ -11,6 +11,7 @@ from homeassistant.core import Event, HomeAssistant
 from madvr_envy import MadvrEnvyClient
 
 from .const import (
+    CONF_MAC_ADDRESS,
     DEFAULT_COMMAND_TIMEOUT,
     DEFAULT_CONNECT_TIMEOUT,
     DEFAULT_READ_TIMEOUT,
@@ -18,17 +19,21 @@ from .const import (
     DEFAULT_RECONNECT_JITTER,
     DEFAULT_RECONNECT_MAX_BACKOFF,
     DEFAULT_SYNC_TIMEOUT,
+    DEFAULT_WAKE_MODE,
     DOMAIN,
     OPT_COMMAND_TIMEOUT,
     OPT_CONNECT_TIMEOUT,
+    OPT_MAC_ADDRESS,
     OPT_READ_TIMEOUT,
     OPT_RECONNECT_INITIAL_BACKOFF,
     OPT_RECONNECT_JITTER,
     OPT_RECONNECT_MAX_BACKOFF,
     OPT_SYNC_TIMEOUT,
+    OPT_WAKE_MODE,
     PLATFORMS,
 )
 from .coordinator import MadvrEnvyCoordinator
+from .lifecycle import normalize_mac_address, normalize_wake_mode
 from .models import MadvrEnvyRuntimeData
 from .services import async_setup_services, async_unload_services
 
@@ -66,9 +71,12 @@ async def async_setup_entry(hass: HomeAssistant, entry: MadvrEnvyConfigEntry) ->
     coordinator = MadvrEnvyCoordinator(
         hass,
         client,
+        entry_id=entry.entry_id,
         sync_timeout=_get_float_option(entry, OPT_SYNC_TIMEOUT, DEFAULT_SYNC_TIMEOUT),
         device_identifier=_device_identifier(entry),
         device_label=host,
+        configured_mac_address=_configured_mac_address(entry),
+        wake_mode=normalize_wake_mode(entry.options.get(OPT_WAKE_MODE, DEFAULT_WAKE_MODE)),
     )
 
     try:
@@ -77,7 +85,7 @@ async def async_setup_entry(hass: HomeAssistant, entry: MadvrEnvyConfigEntry) ->
         await coordinator.async_shutdown()
         raise
 
-    runtime_data = MadvrEnvyRuntimeData(client=client, coordinator=coordinator, last_data={})
+    runtime_data = MadvrEnvyRuntimeData(client=client, coordinator=coordinator)
     entry.runtime_data = runtime_data
     hass.data.setdefault(DOMAIN, {})[entry.entry_id] = runtime_data
     await async_setup_services(hass)
@@ -112,24 +120,31 @@ def _get_float_option(entry: ConfigEntry, key: str, default: float) -> float:
     return float(value)
 
 
+def _configured_mac_address(entry: ConfigEntry) -> str | None:
+    option_value = normalize_mac_address(entry.options.get(OPT_MAC_ADDRESS))
+    if option_value is not None:
+        return option_value
+    return normalize_mac_address(entry.data.get(CONF_MAC_ADDRESS))
+
+
 def _device_identifier(entry: ConfigEntry) -> str:
-    """Preserve legacy entity ids across online and offline startups."""
+    """Preserve entity ids across online and offline startups."""
+    mac_address = _configured_mac_address(entry)
+    if mac_address is not None:
+        return mac_address.replace(":", "")
+
     host = str(entry.data[CONF_HOST]).strip()
     port = int(entry.data[CONF_PORT])
-    fallback = f"{host}:{port}"
+    host_port_unique_id = f"{DOMAIN}_{host}_{port}"
 
     unique_id = entry.unique_id
-    if not unique_id:
-        return fallback
+    if unique_id:
+        if unique_id == host_port_unique_id:
+            return f"{host}:{port}"
+        prefix = f"{DOMAIN}_"
+        if unique_id.startswith(prefix):
+            suffix = unique_id[len(prefix) :]
+            if suffix:
+                return suffix
 
-    host_port_unique_id = f"{DOMAIN}_{host}_{port}"
-    if unique_id == host_port_unique_id:
-        return fallback
-
-    prefix = f"{DOMAIN}_"
-    if unique_id.startswith(prefix):
-        suffix = unique_id[len(prefix) :]
-        if suffix:
-            return suffix
-
-    return unique_id
+    return f"{host}:{port}"

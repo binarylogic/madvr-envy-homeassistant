@@ -13,11 +13,12 @@ from custom_components.madvr_envy import binary_sensor, button, remote, select, 
 from custom_components.madvr_envy.binary_sensor import BINARY_SENSORS, MadvrEnvyBinarySensor
 from custom_components.madvr_envy.coordinator import MadvrEnvyCoordinator
 from custom_components.madvr_envy.entity import MadvrEnvyEntity
+from custom_components.madvr_envy.models import MadvrEnvyRuntimeState
 
 
 async def test_platform_setup_entity_counts(hass, mock_envy_client):
     """Test platform setup entity creation and advanced filtering."""
-    coordinator = MadvrEnvyCoordinator(hass, mock_envy_client)
+    coordinator = MadvrEnvyCoordinator(hass, mock_envy_client, entry_id="test-entry")
     await coordinator.async_start()
 
     basic_entry = SimpleNamespace(
@@ -64,34 +65,27 @@ async def test_platform_setup_entity_counts(hass, mock_envy_client):
 
 def test_temperature_value_helper_branches():
     """Test temperature helper fallback behavior."""
-    assert sensor._temperature_value({}, 0) is None
-    assert sensor._temperature_value({"temperatures": (1,)}, 1) is None
-    assert sensor._temperature_value({"temperatures": ("x",)}, 0) is None
-    assert sensor._nested_value({}, "incoming_signal", "resolution") is None
+    assert sensor._temperature_value(MadvrEnvyRuntimeState(), 0) is None
+    assert sensor._temperature_value(MadvrEnvyRuntimeState(temperatures=(1, 2, 3, 4)), 9) is None
+    assert sensor._nested_value(None, "resolution") is None
+    assert sensor._nested_value({"aspect_ratio": "16:9"}, "aspect_ratio") == "16:9"
+    assert sensor._ratio_decimal_value(None) is None
+    assert sensor._ratio_decimal_value({"decimal_ratio": 2.259}) == 2.259
+    assert sensor._active_profile_value(MadvrEnvyRuntimeState()) is None
     assert (
-        sensor._nested_value(
-            {"incoming_signal": {"aspect_ratio": "16:9"}}, "incoming_signal", "aspect_ratio"
+        sensor._active_profile_value(
+            MadvrEnvyRuntimeState(active_profile_group="1", active_profile_index=2)
         )
-        == "16:9"
-    )
-    assert sensor._ratio_decimal_value({}, "masking_ratio") is None
-    assert (
-        sensor._ratio_decimal_value({"masking_ratio": {"decimal_ratio": 2.259}}, "masking_ratio")
-        == 2.259
-    )
-    assert sensor._active_profile_value({}) is None
-    assert (
-        sensor._active_profile_value({"active_profile_group": "1", "active_profile_index": 2})
         == "1: 2"
     )
     assert (
         sensor._active_profile_value(
-            {
-                "active_profile_group": "1",
-                "active_profile_index": 2,
-                "profile_groups": {"1": "Cinema"},
-                "profiles": {"1_2": "Night"},
-            }
+            MadvrEnvyRuntimeState(
+                active_profile_group="1",
+                active_profile_index=2,
+                profile_groups={"1": "Cinema"},
+                profiles={"1_2": "Night"},
+            )
         )
         == "Cinema: Night"
     )
@@ -112,7 +106,7 @@ class _DummyEntity(MadvrEnvyEntity):
 
 async def test_entity_execute_wraps_command_errors(hass, mock_envy_client):
     """Test command errors are translated to HomeAssistantError."""
-    coordinator = MadvrEnvyCoordinator(hass, mock_envy_client)
+    coordinator = MadvrEnvyCoordinator(hass, mock_envy_client, entry_id="test-entry")
     await coordinator.async_start()
 
     entity = _DummyEntity(coordinator)
@@ -128,20 +122,11 @@ async def test_entity_execute_wraps_command_errors(hass, mock_envy_client):
 
 async def test_binary_sensor_returns_unknown_during_expected_power_down(hass, mock_envy_client):
     """Test secondary binary sensors degrade to unknown during standby/off."""
-    coordinator = MadvrEnvyCoordinator(hass, mock_envy_client)
+    coordinator = MadvrEnvyCoordinator(hass, mock_envy_client, entry_id="test-entry")
     await coordinator.async_start()
-
-    coordinator.async_set_updated_data(
-        {
-            **coordinator.data,
-            "available": False,
-            "power_state": "off",
-            "signal_present": True,
-        }
-    )
+    await coordinator.async_standby()
 
     entity = MadvrEnvyBinarySensor(coordinator, BINARY_SENSORS[0])
-    assert entity.available is True
     assert entity.is_on is None
 
     await coordinator.async_shutdown()
@@ -149,9 +134,10 @@ async def test_binary_sensor_returns_unknown_during_expected_power_down(hass, mo
 
 async def test_select_setup_restores_profile_groups_from_entity_registry(hass, mock_envy_client):
     """Test offline startup restores profile-group entities from the registry."""
-    coordinator = MadvrEnvyCoordinator(hass, mock_envy_client)
+    coordinator = MadvrEnvyCoordinator(hass, mock_envy_client, entry_id="test-entry")
     await coordinator.async_start()
-    coordinator.async_set_updated_data({**coordinator.data, "profile_groups": {}})
+    coordinator._profile_groups = {}
+    coordinator._publish()
 
     entry = MockConfigEntry(
         domain="madvr_envy",
