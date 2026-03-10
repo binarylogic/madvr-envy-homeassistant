@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.3.3](https://github.com/binarylogic/madvr-envy-homeassistant/compare/v0.3.2...v0.3.3) (2026-03-10)
+
+
+### Bug Fixes
+
+* keep envy entities stable when offline at startup ([ad87d21](https://github.com/binarylogic/madvr-envy-homeassistant/commit/ad87d210d596dd4447d84baef8abe75e5d777551))
+
 ## [0.3.2](https://github.com/binarylogic/madvr-envy-homeassistant/compare/v0.3.1...v0.3.2) (2026-03-10)
 
 
