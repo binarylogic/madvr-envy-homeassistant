@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.4.3](https://github.com/binarylogic/madvr-envy-homeassistant/compare/v0.4.2...v0.4.3) (2026-03-11)
+
+
+### Bug Fixes
+
+* keep standby state truthful while disconnected ([3eb6356](https://github.com/binarylogic/madvr-envy-homeassistant/commit/3eb6356a58da810bb4b918ac9d2b33754daaa45f))
+
 ## [0.4.2](https://github.com/binarylogic/madvr-envy-homeassistant/compare/v0.4.1...v0.4.2) (2026-03-10)
 
 
