@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+from dataclasses import asdict
 from typing import Any
 
 from homeassistant.components.diagnostics import async_redact_data
@@ -19,7 +20,7 @@ async def async_get_config_entry_diagnostics(
     """Return diagnostics for a config entry."""
 
     coordinator = entry.runtime_data.coordinator
-    data = coordinator.data or {}
+    data = coordinator.data
 
     diagnostics = {
         "entry": {
@@ -31,7 +32,7 @@ async def async_get_config_entry_diagnostics(
         },
         "runtime": {
             "connected": coordinator.client.connected,
-            "state": dict(data),
+            "state": asdict(data) if data is not None else {},
             "host": entry.data.get(CONF_HOST),
             "port": entry.data.get(CONF_PORT),
         },

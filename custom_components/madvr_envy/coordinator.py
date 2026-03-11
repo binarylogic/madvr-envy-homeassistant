@@ -13,6 +13,7 @@ from madvr_envy import MadvrEnvyClient
 from madvr_envy import exceptions as envy_exceptions
 from madvr_envy.adapter import EnvyStateAdapter
 from madvr_envy.ha_bridge import HABridgeDispatcher, coordinator_payload
+from madvr_envy.protocol import PowerOffMessage, StandbyMessage
 
 from .const import DEFAULT_SYNC_TIMEOUT, DOMAIN
 from .lifecycle import (
@@ -73,6 +74,8 @@ class MadvrEnvyCoordinator(DataUpdateCoordinator[MadvrEnvyRuntimeState]):
         if self._started:
             return
 
+        self.client.auto_reconnect = True
+
         restored = await self._store.async_load()
         self._apply_restored_state(restored)
 
@@ -92,6 +95,7 @@ class MadvrEnvyCoordinator(DataUpdateCoordinator[MadvrEnvyRuntimeState]):
         try:
             await self.client.start()
             await self.client.wait_synced(timeout=self._sync_timeout)
+            self._connection_state = ConnectionState.CONNECTED
             await self._async_publish_current_state()
         except (
             TimeoutError,
@@ -186,24 +190,30 @@ class MadvrEnvyCoordinator(DataUpdateCoordinator[MadvrEnvyRuntimeState]):
 
     async def async_power_on(self) -> None:
         """Wake or power on the device using the configured wake path."""
+        self.client.auto_reconnect = True
         if self.can_send_live_commands:
             await self.client.power_on()
             return
         if not self.can_wake or self._mac_address is None:
             raise envy_exceptions.NotConnectedError("No wake path configured")
         await async_send_magic_packet(self._mac_address)
+        self._schedule_bootstrap_retry()
 
     async def async_standby(self) -> None:
         """Put the device into standby."""
-        await self.client.standby()
-        self._power_state = PowerState.STANDBY
-        self._publish()
+        await self._async_apply_sleep_transition(
+            self.client.standby,
+            target_state=PowerState.STANDBY,
+            protocol_message=StandbyMessage(),
+        )
 
     async def async_power_off(self) -> None:
         """Turn the device fully off."""
-        await self.client.power_off()
-        self._power_state = PowerState.OFF
-        self._publish()
+        await self._async_apply_sleep_transition(
+            self.client.power_off,
+            target_state=PowerState.OFF,
+            protocol_message=PowerOffMessage(),
+        )
 
     def _emit_bus_event(self, event_type: str, event_data: dict[str, object]) -> None:
         self.hass.bus.async_fire(event_type, event_data)
@@ -216,6 +226,8 @@ class MadvrEnvyCoordinator(DataUpdateCoordinator[MadvrEnvyRuntimeState]):
     def _handle_client_event(self, event: str, _message: object | None = None) -> None:
         if event == "disconnected":
             self._connection_state = ConnectionState.DISCONNECTED
+            if self._power_state is PowerState.ON:
+                self._power_state = PowerState.UNKNOWN
             self._publish()
         elif event == "connected":
             self._connection_state = ConnectionState.CONNECTED
@@ -247,7 +259,10 @@ class MadvrEnvyCoordinator(DataUpdateCoordinator[MadvrEnvyRuntimeState]):
         self._publish()
 
     def _apply_restored_state(self, restored: RestoredRuntimeState) -> None:
-        self._power_state = restored.power_state
+        if restored.power_state in (PowerState.STANDBY, PowerState.OFF):
+            self._power_state = restored.power_state
+        else:
+            self._power_state = PowerState.UNKNOWN
         if restored.mac_address is not None:
             self._mac_address = restored.mac_address
         self._profile_groups = dict(restored.profile_groups or {})
@@ -255,12 +270,12 @@ class MadvrEnvyCoordinator(DataUpdateCoordinator[MadvrEnvyRuntimeState]):
 
     def _apply_payload(self, payload: Mapping[str, Any]) -> None:
         self._payload.update(dict(payload))
-        self._connection_state = (
-            ConnectionState.CONNECTED if self.client.state.synced else self._connection_state
-        )
 
         power_state = _derive_power_state(payload)
-        if power_state is not PowerState.UNKNOWN:
+        if power_state is not PowerState.UNKNOWN and (
+            self._connection_state is ConnectionState.CONNECTED
+            or power_state in (PowerState.STANDBY, PowerState.OFF)
+        ):
             self._power_state = power_state
 
         mac_address = normalize_mac_address(payload.get("mac_address"))
@@ -356,6 +371,34 @@ class MadvrEnvyCoordinator(DataUpdateCoordinator[MadvrEnvyRuntimeState]):
                     await asyncio.sleep(self._BOOTSTRAP_RETRY_INTERVAL_SECONDS)
         except asyncio.CancelledError:
             return
+
+    async def _async_apply_sleep_transition(
+        self,
+        command,
+        *,
+        target_state: PowerState,
+        protocol_message,
+    ) -> None:
+        """Apply a sleep/power-off transition without surfacing expected disconnects."""
+        self.client.auto_reconnect = False
+        try:
+            await command()
+        except (
+            TimeoutError,
+            envy_exceptions.NotConnectedError,
+            envy_exceptions.ConnectionFailedError,
+            envy_exceptions.ConnectionTimeoutError,
+        ) as err:
+            self.logger.debug(
+                "Treating %s disconnect as successful lifecycle transition: %s",
+                target_state.value,
+                err,
+            )
+        await self.client.stop()
+        self._connection_state = ConnectionState.DISCONNECTED
+        self.client.state.apply(protocol_message)
+        self._power_state = target_state
+        self._publish()
 
 
 def _derive_power_state(payload: Mapping[str, Any]) -> PowerState:

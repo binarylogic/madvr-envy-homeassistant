@@ -119,11 +119,13 @@ async def test_power_mode_select_calls_expected_commands(hass, mock_envy_client)
 
     await entity.async_select_option("standby")
     await entity.async_select_option("off")
-    await entity.async_select_option("on")
+    with patch("custom_components.madvr_envy.coordinator.async_send_magic_packet", AsyncMock()) as send_wol:
+        await entity.async_select_option("on")
+        send_wol.assert_awaited_once_with("00:11:22:33:44:55")
 
     mock_envy_client.standby.assert_awaited_once()
     mock_envy_client.power_off.assert_awaited_once()
-    mock_envy_client.power_on.assert_awaited_once()
+    mock_envy_client.power_on.assert_not_awaited()
 
     await coordinator.async_shutdown()
 

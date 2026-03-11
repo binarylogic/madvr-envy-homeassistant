@@ -2,10 +2,14 @@
 
 from __future__ import annotations
 
+from unittest.mock import patch
+
+from madvr_envy import exceptions as envy_exceptions
 from madvr_envy.adapter import AdapterEvent, EnvySnapshot
 from pytest_homeassistant_custom_component.common import async_capture_events
 
 from custom_components.madvr_envy.coordinator import MadvrEnvyCoordinator
+from custom_components.madvr_envy.lifecycle import PowerState, RestoredRuntimeState
 
 
 async def test_coordinator_start_stop(hass, mock_envy_client):
@@ -98,6 +102,7 @@ async def test_coordinator_marks_unavailable_on_disconnect(hass, mock_envy_clien
     client_callback("disconnected", None)
     assert coordinator.data is not None
     assert coordinator.data.can_send_live_commands is False
+    assert coordinator.data.power_state.value == "unknown"
 
     client_callback("connected", None)
     assert coordinator.data.can_send_live_commands is True
@@ -113,5 +118,136 @@ async def test_coordinator_prime_failure_is_non_fatal(hass, mock_envy_client):
     await coordinator.async_start()
     assert coordinator.data is not None
     assert coordinator.data.can_send_live_commands is True
+
+    await coordinator.async_shutdown()
+
+
+async def test_coordinator_standby_treats_disconnect_as_success(hass, mock_envy_client):
+    """Standby should not fail if the Envy drops the connection while sleeping."""
+    mock_envy_client.standby.side_effect = envy_exceptions.NotConnectedError()
+    coordinator = MadvrEnvyCoordinator(hass, mock_envy_client, entry_id="test-entry")
+    await coordinator.async_start()
+
+    await coordinator.async_standby()
+
+    assert coordinator.data is not None
+    assert coordinator.data.power_state.value == "standby"
+    assert coordinator.data.can_send_live_commands is False
+    assert mock_envy_client.auto_reconnect is False
+    mock_envy_client.stop.assert_awaited()
+
+    await coordinator.async_shutdown()
+
+
+async def test_coordinator_power_off_treats_disconnect_as_success(hass, mock_envy_client):
+    """Power off should not fail if the Envy drops the connection while shutting down."""
+    mock_envy_client.power_off.side_effect = TimeoutError()
+    coordinator = MadvrEnvyCoordinator(hass, mock_envy_client, entry_id="test-entry")
+    await coordinator.async_start()
+
+    await coordinator.async_power_off()
+
+    assert coordinator.data is not None
+    assert coordinator.data.power_state.value == "off"
+    assert coordinator.data.can_send_live_commands is False
+    assert mock_envy_client.auto_reconnect is False
+    mock_envy_client.stop.assert_awaited()
+
+    await coordinator.async_shutdown()
+
+
+async def test_coordinator_ignores_stale_on_payload_while_disconnected(hass, mock_envy_client):
+    """Sleep transitions should not be overwritten by stale connected-state payloads."""
+    coordinator = MadvrEnvyCoordinator(hass, mock_envy_client, entry_id="test-entry")
+    await coordinator.async_start()
+
+    await coordinator.async_standby()
+    assert coordinator.data is not None
+    assert coordinator.data.power_state.value == "standby"
+    assert coordinator.data.can_send_live_commands is False
+
+    callback = mock_envy_client._test_callbacks["adapter"]
+    callback(
+        EnvySnapshot(
+            synced=True,
+            version="1.0.1",
+            is_on=True,
+            standby=False,
+            signal_present=True,
+            mac_address="00:11:22:33:44:55",
+            active_profile_group="1",
+            active_profile_index=1,
+            current_menu=None,
+            aspect_ratio_mode=None,
+            incoming_signal=None,
+            outgoing_signal=None,
+            aspect_ratio=None,
+            masking_ratio=None,
+            tone_map_enabled=False,
+            temperatures=(45, 40, 47, 39),
+            settings_pages=(),
+            config_pages=(),
+            profile_groups=(("1", "Cinema"),),
+            profiles=(("1_1", "Day"),),
+            options=(),
+            last_system_action=None,
+            last_button_event=None,
+            last_inherit_option_path=None,
+            last_inherit_option_effective=None,
+            last_uploaded_3dlut=None,
+            last_renamed_3dlut=None,
+            last_deleted_3dlut=None,
+            last_store_settings=None,
+            last_restore_settings=None,
+            temporary_reset_count=0,
+            display_changed_count=0,
+            settings_upload_count=0,
+        ),
+        [],
+        [],
+    )
+    await hass.async_block_till_done()
+
+    assert coordinator.data.power_state.value == "standby"
+    assert coordinator.data.can_send_live_commands is False
+
+    await coordinator.async_shutdown()
+
+
+async def test_coordinator_power_on_reenables_reconnect_and_schedules_bootstrap(hass, mock_envy_client):
+    """Wake path should resume reconnect attempts after WoL."""
+    coordinator = MadvrEnvyCoordinator(
+        hass,
+        mock_envy_client,
+        entry_id="test-entry",
+        configured_mac_address="00:11:22:33:44:55",
+    )
+    await coordinator.async_start()
+
+    await coordinator.async_standby()
+    assert mock_envy_client.auto_reconnect is False
+
+    with patch("custom_components.madvr_envy.coordinator.async_send_magic_packet") as mock_wol:
+        await coordinator.async_power_on()
+
+    assert mock_envy_client.auto_reconnect is True
+    mock_wol.assert_awaited_once_with("00:11:22:33:44:55")
+
+    await coordinator.async_shutdown()
+
+
+async def test_coordinator_does_not_restore_on_while_disconnected_startup(hass, mock_envy_client):
+    """Disconnected startup must not preserve stale on-state from restored runtime data."""
+    mock_envy_client.wait_synced.side_effect = TimeoutError()
+    coordinator = MadvrEnvyCoordinator(hass, mock_envy_client, entry_id="test-entry")
+    await coordinator._store.async_save(
+        RestoredRuntimeState(power_state=PowerState.ON, mac_address="00:11:22:33:44:55")
+    )
+
+    await coordinator.async_start()
+
+    assert coordinator.data is not None
+    assert coordinator.data.connection_state.value == "disconnected"
+    assert coordinator.data.power_state.value == "unknown"
 
     await coordinator.async_shutdown()
