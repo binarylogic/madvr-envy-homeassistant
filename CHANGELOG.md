@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.4.4](https://github.com/binarylogic/madvr-envy-homeassistant/compare/v0.4.3...v0.4.4) (2026-03-21)
+
+
+### Bug Fixes
+
+* restore explicit wake mac handling ([1131d1e](https://github.com/binarylogic/madvr-envy-homeassistant/commit/1131d1eaf8e303b8b74ad4cc20cc29435afae67b))
+
 ## [0.4.3](https://github.com/binarylogic/madvr-envy-homeassistant/compare/v0.4.2...v0.4.3) (2026-03-11)
 
 
