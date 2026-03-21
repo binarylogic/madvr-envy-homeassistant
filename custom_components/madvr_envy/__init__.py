@@ -90,6 +90,8 @@ async def async_setup_entry(hass: HomeAssistant, entry: MadvrEnvyConfigEntry) ->
     hass.data.setdefault(DOMAIN, {})[entry.entry_id] = runtime_data
     await async_setup_services(hass)
 
+    entry.async_on_unload(entry.add_update_listener(async_reload_entry))
+
     async def _handle_hass_stop(_event: Event) -> None:
         await coordinator.async_shutdown()
 

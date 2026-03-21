@@ -11,6 +11,7 @@ from homeassistant.const import CONF_HOST, CONF_PORT
 from homeassistant.data_entry_flow import FlowResultType, InvalidData
 
 from custom_components.madvr_envy.const import (
+    CONF_MAC_ADDRESS,
     DOMAIN,
     OPT_RECONNECT_INITIAL_BACKOFF,
     OPT_RECONNECT_JITTER,
@@ -39,6 +40,33 @@ async def test_user_flow_success(hass):
         CONF_HOST: "192.168.1.100",
         CONF_PORT: 44077,
         "mac_address": "00:11:22:33:44:55",
+    }
+
+
+async def test_user_flow_success_with_manual_mac(hass):
+    """Test setup honors an explicit wake MAC when discovery is unavailable."""
+    client = MagicMock()
+    client.start = AsyncMock()
+    client.wait_synced = AsyncMock()
+    client.stop = AsyncMock()
+    client.state = SimpleNamespace(mac_address=None)
+
+    with patch("custom_components.madvr_envy.config_flow.MadvrEnvyClient", return_value=client):
+        result = await hass.config_entries.flow.async_init(
+            DOMAIN,
+            context={"source": SOURCE_USER},
+            data={
+                CONF_HOST: "192.168.1.100",
+                CONF_PORT: 44077,
+                CONF_MAC_ADDRESS: "00-11-22-33-44-55",
+            },
+        )
+
+    assert result["type"] is FlowResultType.CREATE_ENTRY
+    assert result["data"] == {
+        CONF_HOST: "192.168.1.100",
+        CONF_PORT: 44077,
+        CONF_MAC_ADDRESS: "00:11:22:33:44:55",
     }
 
 
@@ -93,6 +121,22 @@ async def test_user_flow_success_without_mac(hass):
 
     assert result["type"] is FlowResultType.CREATE_ENTRY
     assert result["title"] == "madVR Envy (192.168.1.100)"
+
+
+async def test_user_flow_invalid_manual_mac(hass):
+    """Test setup rejects malformed manual wake MAC values."""
+    result = await hass.config_entries.flow.async_init(
+        DOMAIN,
+        context={"source": SOURCE_USER},
+        data={
+            CONF_HOST: "192.168.1.100",
+            CONF_PORT: 44077,
+            CONF_MAC_ADDRESS: "invalid",
+        },
+    )
+
+    assert result["type"] is FlowResultType.FORM
+    assert result["errors"] == {CONF_MAC_ADDRESS: "invalid_mac"}
 
 
 async def test_reauth_flow_success(hass, mock_config_entry):
@@ -190,3 +234,29 @@ async def test_options_flow_success(hass, mock_config_entry):
     )
 
     assert result2["type"] is FlowResultType.CREATE_ENTRY
+    assert result2["data"]["mac_address"] == ""
+
+
+async def test_options_flow_rejects_invalid_mac(hass, mock_config_entry):
+    """Test options flow rejects malformed wake MAC values."""
+    mock_config_entry.add_to_hass(hass)
+
+    result = await hass.config_entries.options.async_init(mock_config_entry.entry_id)
+    result2 = await hass.config_entries.options.async_configure(
+        result["flow_id"],
+        user_input={
+            "sync_timeout": 11.0,
+            "connect_timeout": 4.0,
+            "command_timeout": 3.0,
+            "read_timeout": 15.0,
+            OPT_RECONNECT_INITIAL_BACKOFF: 0.5,
+            OPT_RECONNECT_MAX_BACKOFF: 8.0,
+            OPT_RECONNECT_JITTER: 0.1,
+            "wake_mode": "auto",
+            "mac_address": "invalid",
+            "enable_advanced_entities": False,
+        },
+    )
+
+    assert result2["type"] is FlowResultType.FORM
+    assert result2["errors"] == {"mac_address": "invalid_mac"}

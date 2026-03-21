@@ -24,6 +24,11 @@ async def test_setup_and_unload_entry(hass, mock_config_entry, mock_envy_client)
     with (
         patch("custom_components.madvr_envy.MadvrEnvyClient", return_value=mock_envy_client),
         patch.object(
+            mock_config_entry,
+            "add_update_listener",
+            wraps=mock_config_entry.add_update_listener,
+        ) as mock_add_update_listener,
+        patch.object(
             hass.config_entries,
             "async_forward_entry_setups",
             AsyncMock(return_value=True),
@@ -46,6 +51,7 @@ async def test_setup_and_unload_entry(hass, mock_config_entry, mock_envy_client)
         assert hass.services.has_service(DOMAIN, SERVICE_PRESS_KEY)
         assert hass.services.has_service(DOMAIN, SERVICE_ACTIVATE_PROFILE)
         assert hass.services.has_service(DOMAIN, SERVICE_RUN_ACTION)
+        mock_add_update_listener.assert_called_once()
 
         mock_forward.assert_awaited_once()
 
