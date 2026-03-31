@@ -78,9 +78,7 @@ class MadvrEnvyConfigFlow(ConfigFlow, domain=DOMAIN):
                 else:
                     unique_id = f"{DOMAIN}_{mac_address.replace(':', '')}"
                     await self.async_set_unique_id(unique_id)
-                    self._abort_if_unique_id_configured(
-                        updates={CONF_HOST: host, CONF_PORT: port}
-                    )
+                    self._abort_if_unique_id_configured(updates={CONF_HOST: host, CONF_PORT: port})
                     title = f"{NAME} ({host})"
                     data = {
                         CONF_HOST: host,

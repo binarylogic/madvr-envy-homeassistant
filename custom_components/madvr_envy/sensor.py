@@ -215,7 +215,9 @@ def _active_profile_value(snapshot: MadvrEnvyRuntimeState) -> str | None:
     return f"{group_name}: {profile_name}"
 
 
-def _nested_value(data: dict[str, str] | dict[str, str | float] | None, nested_key: str) -> str | None:
+def _nested_value(
+    data: dict[str, str] | dict[str, str | float] | None, nested_key: str
+) -> str | None:
     if data is None:
         return None
     value = data.get(nested_key)

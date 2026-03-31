@@ -14,7 +14,9 @@ from custom_components.madvr_envy.lifecycle import PowerState, RestoredRuntimeSt
 
 async def test_coordinator_start_stop(hass, mock_envy_client):
     """Test coordinator startup and shutdown lifecycle."""
-    coordinator = MadvrEnvyCoordinator(hass, mock_envy_client, entry_id="test-entry", sync_timeout=5.0)
+    coordinator = MadvrEnvyCoordinator(
+        hass, mock_envy_client, entry_id="test-entry", sync_timeout=5.0
+    )
 
     await coordinator.async_start()
 
@@ -214,7 +216,9 @@ async def test_coordinator_ignores_stale_on_payload_while_disconnected(hass, moc
     await coordinator.async_shutdown()
 
 
-async def test_coordinator_power_on_reenables_reconnect_and_schedules_bootstrap(hass, mock_envy_client):
+async def test_coordinator_power_on_reenables_reconnect_and_schedules_bootstrap(
+    hass, mock_envy_client
+):
     """Wake path should resume reconnect attempts after WoL."""
     coordinator = MadvrEnvyCoordinator(
         hass,
