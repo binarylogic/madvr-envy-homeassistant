@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.4.5](https://github.com/binarylogic/madvr-envy-homeassistant/compare/v0.4.4...v0.4.5) (2026-03-31)
+
+
+### Bug Fixes
+
+* require explicit mac address during setup ([18ff487](https://github.com/binarylogic/madvr-envy-homeassistant/commit/18ff487146e2b04cdba10d7abf111f6d303eefdc))
+
 ## [0.4.4](https://github.com/binarylogic/madvr-envy-homeassistant/compare/v0.4.3...v0.4.4) (2026-03-21)
 
 
