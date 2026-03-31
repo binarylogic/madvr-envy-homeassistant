@@ -131,22 +131,22 @@ def _configured_mac_address(entry: ConfigEntry) -> str | None:
 
 def _device_identifier(entry: ConfigEntry) -> str:
     """Preserve entity ids across online and offline startups."""
+    unique_id = entry.unique_id
+    if unique_id:
+        prefix = f"{DOMAIN}_"
+        if unique_id.startswith(prefix):
+            suffix = unique_id[len(prefix) :]
+            if suffix:
+                host = str(entry.data[CONF_HOST]).strip()
+                port = int(entry.data[CONF_PORT])
+                if suffix == f"{host}_{port}":
+                    return f"{host}:{port}"
+                return suffix
+
     mac_address = _configured_mac_address(entry)
     if mac_address is not None:
         return mac_address.replace(":", "")
 
     host = str(entry.data[CONF_HOST]).strip()
     port = int(entry.data[CONF_PORT])
-    host_port_unique_id = f"{DOMAIN}_{host}_{port}"
-
-    unique_id = entry.unique_id
-    if unique_id:
-        if unique_id == host_port_unique_id:
-            return f"{host}:{port}"
-        prefix = f"{DOMAIN}_"
-        if unique_id.startswith(prefix):
-            suffix = unique_id[len(prefix) :]
-            if suffix:
-                return suffix
-
     return f"{host}:{port}"

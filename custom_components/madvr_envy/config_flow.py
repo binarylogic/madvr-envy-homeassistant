@@ -48,7 +48,7 @@ STEP_USER_DATA_SCHEMA = vol.Schema(
         vol.Required(CONF_PORT, default=DEFAULT_PORT): vol.All(
             vol.Coerce(int), vol.Range(min=1, max=65535)
         ),
-        vol.Optional(CONF_MAC_ADDRESS): str,
+        vol.Required(CONF_MAC_ADDRESS): str,
     }
 )
 
@@ -71,20 +71,22 @@ class MadvrEnvyConfigFlow(ConfigFlow, domain=DOMAIN):
             except ValueError:
                 errors[CONF_MAC_ADDRESS] = "invalid_mac"
             else:
-                unique_id, discovered_mac = await _validate_connection(host, port)
-                if unique_id is None:
+                if mac_address is None:
+                    errors[CONF_MAC_ADDRESS] = "required_mac"
+                elif not await _validate_connection(host, port):
                     errors["base"] = "cannot_connect"
                 else:
+                    unique_id = f"{DOMAIN}_{mac_address.replace(':', '')}"
                     await self.async_set_unique_id(unique_id)
                     self._abort_if_unique_id_configured(
                         updates={CONF_HOST: host, CONF_PORT: port}
                     )
                     title = f"{NAME} ({host})"
-                    data = {CONF_HOST: host, CONF_PORT: port}
-                    if mac_address is None:
-                        mac_address = discovered_mac
-                    if mac_address is not None:
-                        data[CONF_MAC_ADDRESS] = mac_address
+                    data = {
+                        CONF_HOST: host,
+                        CONF_PORT: port,
+                        CONF_MAC_ADDRESS: mac_address,
+                    }
                     return self.async_create_entry(title=title, data=data)
 
         return self.async_show_form(
@@ -108,13 +110,10 @@ class MadvrEnvyConfigFlow(ConfigFlow, domain=DOMAIN):
             host = user_input[CONF_HOST].strip()
             port = int(user_input[CONF_PORT])
 
-            unique_id, mac_address = await _validate_connection(host, port)
-            if unique_id is None:
+            if not await _validate_connection(host, port):
                 errors["base"] = "cannot_connect"
             else:
                 data = {**self._reauth_entry.data, CONF_HOST: host, CONF_PORT: port}
-                if mac_address is not None:
-                    data[CONF_MAC_ADDRESS] = mac_address
                 self.hass.config_entries.async_update_entry(self._reauth_entry, data=data)
                 await self.hass.config_entries.async_reload(self._reauth_entry.entry_id)
                 return self.async_abort(reason="reauth_successful")
@@ -186,7 +185,7 @@ class MadvrEnvyOptionsFlowHandler(OptionsFlow):
         )
 
 
-async def _validate_connection(host: str, port: int) -> tuple[str | None, str | None]:
+async def _validate_connection(host: str, port: int) -> bool:
     client = MadvrEnvyClient(host=host, port=port)
     try:
         await client.start()
@@ -197,19 +196,14 @@ async def _validate_connection(host: str, port: int) -> tuple[str | None, str | 
         envy_exceptions.NotConnectedError,
         TimeoutError,
     ):
-        return None, None
+        return False
     except Exception:  # noqa: BLE001
         _LOGGER.exception("Unexpected error during madVR Envy connection validation")
-        return None, None
+        return False
     finally:
         await client.stop()
 
-    mac_address = normalize_mac_address(client.state.mac_address)
-    if mac_address:
-        normalized_mac = mac_address.replace(":", "")
-        return f"{DOMAIN}_{normalized_mac}", mac_address
-
-    return f"{DOMAIN}_{host}_{port}", None
+    return True
 
 
 def _build_options_schema(config_entry: ConfigEntry) -> vol.Schema:

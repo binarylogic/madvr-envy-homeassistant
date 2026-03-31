@@ -10,7 +10,7 @@ from homeassistant.const import CONF_HOST, CONF_PORT
 from madvr_envy.state import EnvyState
 from pytest_homeassistant_custom_component.common import MockConfigEntry
 
-from custom_components.madvr_envy.const import DOMAIN
+from custom_components.madvr_envy.const import CONF_MAC_ADDRESS, DOMAIN
 
 
 @pytest.fixture(autouse=True)
@@ -28,9 +28,10 @@ def mock_config_entry() -> MockConfigEntry:
         data={
             CONF_HOST: "192.168.1.100",
             CONF_PORT: 44077,
+            CONF_MAC_ADDRESS: "00:11:22:33:44:55",
         },
         options={},
-        unique_id="madvr_envy_192.168.1.100_44077",
+        unique_id="madvr_envy_001122334455",
     )
 
 

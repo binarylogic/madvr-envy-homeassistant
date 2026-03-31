@@ -3,7 +3,7 @@
     "step": {
       "user": {
         "title": "Connect to madVR Envy",
-        "description": "Set up a madVR Envy processor. Enter a wake MAC address for an explicit Wake-on-LAN target, or leave it blank to use the MAC reported by the device when available.",
+        "description": "Set up a madVR Envy processor. Enter the device MAC address explicitly for Wake-on-LAN and stable identification.",
         "data": {
           "host": "Host",
           "port": "Port",
@@ -22,6 +22,7 @@
     "error": {
       "cannot_connect": "Failed to connect to the madVR Envy",
       "invalid_mac": "Wake MAC address is invalid",
+      "required_mac": "Wake MAC address is required",
       "invalid_backoff": "Reconnect max backoff must be greater than or equal to initial backoff",
       "invalid_jitter": "Reconnect jitter must be between 0.0 and 1.0",
       "unknown": "Unexpected error"

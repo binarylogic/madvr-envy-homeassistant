@@ -20,7 +20,7 @@ from custom_components.madvr_envy.const import (
 
 
 async def test_user_flow_success(hass):
-    """Test successful config flow."""
+    """Test successful config flow with an explicit MAC address."""
     client = MagicMock()
     client.start = AsyncMock()
     client.wait_synced = AsyncMock()
@@ -31,7 +31,11 @@ async def test_user_flow_success(hass):
         result = await hass.config_entries.flow.async_init(
             DOMAIN,
             context={"source": SOURCE_USER},
-            data={CONF_HOST: "192.168.1.100", CONF_PORT: 44077},
+            data={
+                CONF_HOST: "192.168.1.100",
+                CONF_PORT: 44077,
+                CONF_MAC_ADDRESS: "00-11-22-33-44-55",
+            },
         )
 
     assert result["type"] is FlowResultType.CREATE_ENTRY
@@ -44,7 +48,7 @@ async def test_user_flow_success(hass):
 
 
 async def test_user_flow_success_with_manual_mac(hass):
-    """Test setup honors an explicit wake MAC when discovery is unavailable."""
+    """Test setup stores an explicit wake MAC without using the device MAC."""
     client = MagicMock()
     client.start = AsyncMock()
     client.wait_synced = AsyncMock()
@@ -80,7 +84,11 @@ async def test_user_flow_cannot_connect(hass):
         result = await hass.config_entries.flow.async_init(
             DOMAIN,
             context={"source": SOURCE_USER},
-            data={CONF_HOST: "192.168.1.100", CONF_PORT: 44077},
+            data={
+                CONF_HOST: "192.168.1.100",
+                CONF_PORT: 44077,
+                CONF_MAC_ADDRESS: "00:11:22:33:44:55",
+            },
         )
 
     assert result["type"] is FlowResultType.FORM
@@ -97,15 +105,19 @@ async def test_user_flow_unknown_exception_maps_to_cannot_connect(hass):
         result = await hass.config_entries.flow.async_init(
             DOMAIN,
             context={"source": SOURCE_USER},
-            data={CONF_HOST: "192.168.1.100", CONF_PORT: 44077},
+            data={
+                CONF_HOST: "192.168.1.100",
+                CONF_PORT: 44077,
+                CONF_MAC_ADDRESS: "00:11:22:33:44:55",
+            },
         )
 
     assert result["type"] is FlowResultType.FORM
     assert result["errors"] == {"base": "cannot_connect"}
 
 
-async def test_user_flow_success_without_mac(hass):
-    """Test successful config flow when MAC is not available."""
+async def test_user_flow_requires_manual_mac(hass):
+    """Test setup requires an explicit manual MAC address."""
     client = MagicMock()
     client.start = AsyncMock()
     client.wait_synced = AsyncMock()
@@ -119,8 +131,8 @@ async def test_user_flow_success_without_mac(hass):
             data={CONF_HOST: "192.168.1.100", CONF_PORT: 44077},
         )
 
-    assert result["type"] is FlowResultType.CREATE_ENTRY
-    assert result["title"] == "madVR Envy (192.168.1.100)"
+    assert result["type"] is FlowResultType.FORM
+    assert result["errors"] == {CONF_MAC_ADDRESS: "required_mac"}
 
 
 async def test_user_flow_invalid_manual_mac(hass):
@@ -166,6 +178,33 @@ async def test_reauth_flow_success(hass, mock_config_entry):
     assert result["type"] is FlowResultType.ABORT
     assert result["reason"] == "reauth_successful"
     assert mock_reload.await_count == 1
+    assert mock_config_entry.data[CONF_MAC_ADDRESS] == "00:11:22:33:44:55"
+
+
+async def test_reauth_flow_does_not_replace_manual_mac(hass, mock_config_entry):
+    """Test reauth preserves the explicitly configured MAC address."""
+    mock_config_entry.add_to_hass(hass)
+
+    client = MagicMock()
+    client.start = AsyncMock()
+    client.wait_synced = AsyncMock()
+    client.stop = AsyncMock()
+    client.state = SimpleNamespace(mac_address="aa:bb:cc:dd:ee:ff")
+
+    with (
+        patch("custom_components.madvr_envy.config_flow.MadvrEnvyClient", return_value=client),
+        patch.object(hass.config_entries, "async_reload", AsyncMock()) as mock_reload,
+    ):
+        result = await hass.config_entries.flow.async_init(
+            DOMAIN,
+            context={"source": SOURCE_REAUTH, "entry_id": mock_config_entry.entry_id},
+            data=mock_config_entry.data,
+        )
+
+    assert result["type"] is FlowResultType.ABORT
+    assert result["reason"] == "reauth_successful"
+    assert mock_reload.await_count == 1
+    assert mock_config_entry.data[CONF_MAC_ADDRESS] == "00:11:22:33:44:55"
 
 
 async def test_options_flow_invalid_backoff(hass, mock_config_entry):
@@ -234,7 +273,7 @@ async def test_options_flow_success(hass, mock_config_entry):
     )
 
     assert result2["type"] is FlowResultType.CREATE_ENTRY
-    assert result2["data"]["mac_address"] == ""
+    assert result2["data"]["mac_address"] == "00:11:22:33:44:55"
 
 
 async def test_options_flow_rejects_invalid_mac(hass, mock_config_entry):

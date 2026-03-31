@@ -190,3 +190,18 @@ def test_device_identifier_uses_legacy_host_port_style_ids():
         unique_id="madvr_envy_192.168.1.100_44077",
     )
     assert _device_identifier(entry) == "192.168.1.100:44077"
+
+
+def test_device_identifier_preserves_legacy_host_port_ids_after_manual_mac_added():
+    """Test adding a manual MAC later does not change legacy entity ids."""
+    entry = MockConfigEntry(
+        domain=DOMAIN,
+        title="madVR Envy (192.168.1.100)",
+        data={
+            CONF_HOST: "192.168.1.100",
+            CONF_PORT: 44077,
+            "mac_address": "00:11:22:33:44:55",
+        },
+        unique_id="madvr_envy_192.168.1.100_44077",
+    )
+    assert _device_identifier(entry) == "192.168.1.100:44077"

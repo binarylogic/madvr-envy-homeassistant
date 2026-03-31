@@ -238,7 +238,6 @@ class MadvrEnvyCoordinator(DataUpdateCoordinator[MadvrEnvyRuntimeState]):
     async def _prime_state(self) -> None:
         """Best-effort startup priming for richer initial entity state."""
         try:
-            await self.client.get_mac_address()
             await self.client.get_temperatures()
 
             groups = await self.client.enum_profile_groups_collect()
@@ -263,8 +262,6 @@ class MadvrEnvyCoordinator(DataUpdateCoordinator[MadvrEnvyRuntimeState]):
             self._power_state = restored.power_state
         else:
             self._power_state = PowerState.UNKNOWN
-        if restored.mac_address is not None:
-            self._mac_address = restored.mac_address
         self._profile_groups = dict(restored.profile_groups or {})
         self._profiles = dict(restored.profiles or {})
 
@@ -277,10 +274,6 @@ class MadvrEnvyCoordinator(DataUpdateCoordinator[MadvrEnvyRuntimeState]):
             or power_state in (PowerState.STANDBY, PowerState.OFF)
         ):
             self._power_state = power_state
-
-        mac_address = normalize_mac_address(payload.get("mac_address"))
-        if mac_address is not None:
-            self._mac_address = mac_address
 
         profile_groups = payload.get("profile_groups")
         if isinstance(profile_groups, dict):

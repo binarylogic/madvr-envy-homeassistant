@@ -22,7 +22,7 @@ async def test_coordinator_start_stop(hass, mock_envy_client):
     mock_envy_client.register_callback.assert_called_once()
     mock_envy_client.start.assert_called_once()
     mock_envy_client.wait_synced.assert_called_once_with(timeout=5.0)
-    mock_envy_client.get_mac_address.assert_awaited_once()
+    mock_envy_client.get_mac_address.assert_not_awaited()
     mock_envy_client.get_temperatures.assert_awaited_once()
     mock_envy_client.enum_profile_groups_collect.assert_awaited_once()
     mock_envy_client.enum_profiles_collect.assert_awaited_once_with("1")
@@ -249,5 +249,63 @@ async def test_coordinator_does_not_restore_on_while_disconnected_startup(hass, 
     assert coordinator.data is not None
     assert coordinator.data.connection_state.value == "disconnected"
     assert coordinator.data.power_state.value == "unknown"
+
+    await coordinator.async_shutdown()
+
+
+async def test_coordinator_ignores_runtime_mac_updates(hass, mock_envy_client):
+    """Test live payload MAC values do not replace the configured MAC."""
+    coordinator = MadvrEnvyCoordinator(
+        hass,
+        mock_envy_client,
+        entry_id="test-entry",
+        configured_mac_address="00:11:22:33:44:55",
+    )
+    await coordinator.async_start()
+
+    callback = mock_envy_client._test_callbacks["adapter"]
+    callback(
+        EnvySnapshot(
+            synced=True,
+            version="1.0.1",
+            is_on=True,
+            standby=False,
+            signal_present=True,
+            mac_address="aa:bb:cc:dd:ee:ff",
+            active_profile_group="1",
+            active_profile_index=1,
+            current_menu=None,
+            aspect_ratio_mode=None,
+            incoming_signal=None,
+            outgoing_signal=None,
+            aspect_ratio=None,
+            masking_ratio=None,
+            tone_map_enabled=False,
+            temperatures=(45, 40, 47, 39),
+            settings_pages=(),
+            config_pages=(),
+            profile_groups=(("1", "Cinema"),),
+            profiles=(("1_1", "Day"),),
+            options=(),
+            last_system_action=None,
+            last_button_event=None,
+            last_inherit_option_path=None,
+            last_inherit_option_effective=None,
+            last_uploaded_3dlut=None,
+            last_renamed_3dlut=None,
+            last_deleted_3dlut=None,
+            last_store_settings=None,
+            last_restore_settings=None,
+            temporary_reset_count=0,
+            display_changed_count=0,
+            settings_upload_count=0,
+        ),
+        [],
+        [],
+    )
+    await hass.async_block_till_done()
+
+    assert coordinator.data is not None
+    assert coordinator.data.mac_address == "00:11:22:33:44:55"
 
     await coordinator.async_shutdown()
