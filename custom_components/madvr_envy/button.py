@@ -27,7 +27,7 @@ BUTTONS: tuple[MadvrEnvyButtonDescription, ...] = (
         key="power_on",
         translation_key="power_on",
         icon="mdi:power-on",
-        press_fn=lambda entity: entity._execute("PowerOn", entity.coordinator.async_power_on),
+        press_fn=lambda entity: entity._execute("EnsureOn", entity.coordinator.async_ensure_on),
         live_command_only=False,
         power_on_command=True,
     ),

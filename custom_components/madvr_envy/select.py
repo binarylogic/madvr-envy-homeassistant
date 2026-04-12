@@ -55,7 +55,7 @@ class MadvrEnvyPowerModeSelect(MadvrEnvyEntity, SelectEntity):
 
     async def async_select_option(self, option: str) -> None:
         if option == PowerState.ON.value:
-            await self._execute("PowerOn", self.coordinator.async_power_on)
+            await self._execute("EnsureOn", self.coordinator.async_ensure_on)
             return
         if option == PowerState.STANDBY.value:
             await self._execute("Standby", self.coordinator.async_standby)

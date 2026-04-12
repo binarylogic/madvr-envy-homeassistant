@@ -189,15 +189,23 @@ class MadvrEnvyCoordinator(DataUpdateCoordinator[MadvrEnvyRuntimeState]):
         return self.can_send_live_commands
 
     async def async_power_on(self) -> None:
-        """Wake or power on the device using the configured wake path."""
+        """Send the Envy live power-on command over the active transport."""
         self.client.auto_reconnect = True
+        await self.client.power_on()
+
+    async def async_ensure_on(self) -> None:
+        """Ensure the device wakes using the configured activation path."""
+        self.client.auto_reconnect = True
+        if self.can_wake and self._mac_address is not None:
+            await async_send_magic_packet(self._mac_address)
+            self._schedule_bootstrap_retry()
+            return
         if self.can_send_live_commands:
             await self.client.power_on()
             return
         if not self.can_wake or self._mac_address is None:
             raise envy_exceptions.NotConnectedError("No wake path configured")
-        await async_send_magic_packet(self._mac_address)
-        self._schedule_bootstrap_retry()
+        raise envy_exceptions.NotConnectedError("No active power-on path available")
 
     async def async_standby(self) -> None:
         """Put the device into standby."""

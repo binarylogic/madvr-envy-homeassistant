@@ -40,7 +40,7 @@ class MadvrEnvyRemote(MadvrEnvyEntity, RemoteEntity):
         return self.power_state is PowerState.ON
 
     async def async_turn_on(self, **kwargs: Any) -> None:
-        await self._execute("PowerOn", self.coordinator.async_power_on)
+        await self._execute("EnsureOn", self.coordinator.async_ensure_on)
 
     async def async_turn_off(self, **kwargs: Any) -> None:
         await self._execute("Standby", self.coordinator.async_standby)
