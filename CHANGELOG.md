@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.4.6](https://github.com/binarylogic/madvr-envy-homeassistant/compare/v0.4.5...v0.4.6) (2026-04-12)
+
+
+### Bug Fixes
+
+* make Envy activation use explicit ensure-on wake path ([f8b1996](https://github.com/binarylogic/madvr-envy-homeassistant/commit/f8b1996a5a6116f7b396b98641c4679a6575a481))
+
 ## [0.4.5](https://github.com/binarylogic/madvr-envy-homeassistant/compare/v0.4.4...v0.4.5) (2026-03-31)
 
 
