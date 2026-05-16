@@ -15,5 +15,5 @@
   "requirements": [
     "madvr-envy>=1.0.0"
   ],
-  "version": "0.4.6"
+  "version": "1.0.0"
 }
