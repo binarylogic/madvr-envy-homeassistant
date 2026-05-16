@@ -35,28 +35,36 @@ SENSORS: tuple[MadvrEnvySensorDescription, ...] = (
         translation_key="gpu_temperature",
         device_class=SensorDeviceClass.TEMPERATURE,
         native_unit_of_measurement=UnitOfTemperature.CELSIUS,
-        value_fn=lambda snapshot: snapshot.device.temperatures.gpu if snapshot.device.temperatures else None,
+        value_fn=lambda snapshot: (
+            snapshot.device.temperatures.gpu if snapshot.device.temperatures else None
+        ),
     ),
     MadvrEnvySensorDescription(
         key="hdmi_input_temperature",
         translation_key="hdmi_input_temperature",
         device_class=SensorDeviceClass.TEMPERATURE,
         native_unit_of_measurement=UnitOfTemperature.CELSIUS,
-        value_fn=lambda snapshot: snapshot.device.temperatures.hdmi_input if snapshot.device.temperatures else None,
+        value_fn=lambda snapshot: (
+            snapshot.device.temperatures.hdmi_input if snapshot.device.temperatures else None
+        ),
     ),
     MadvrEnvySensorDescription(
         key="cpu_temperature",
         translation_key="cpu_temperature",
         device_class=SensorDeviceClass.TEMPERATURE,
         native_unit_of_measurement=UnitOfTemperature.CELSIUS,
-        value_fn=lambda snapshot: snapshot.device.temperatures.cpu if snapshot.device.temperatures else None,
+        value_fn=lambda snapshot: (
+            snapshot.device.temperatures.cpu if snapshot.device.temperatures else None
+        ),
     ),
     MadvrEnvySensorDescription(
         key="mainboard_temperature",
         translation_key="mainboard_temperature",
         device_class=SensorDeviceClass.TEMPERATURE,
         native_unit_of_measurement=UnitOfTemperature.CELSIUS,
-        value_fn=lambda snapshot: snapshot.device.temperatures.mainboard if snapshot.device.temperatures else None,
+        value_fn=lambda snapshot: (
+            snapshot.device.temperatures.mainboard if snapshot.device.temperatures else None
+        ),
     ),
     MadvrEnvySensorDescription(
         key="version",
@@ -82,61 +90,83 @@ SENSORS: tuple[MadvrEnvySensorDescription, ...] = (
         key="incoming_signal_resolution",
         translation_key="incoming_signal_resolution",
         icon="mdi:video-input-hdmi",
-        value_fn=lambda snapshot: snapshot.device.incoming_signal.resolution if snapshot.device.incoming_signal else None,
+        value_fn=lambda snapshot: (
+            snapshot.device.incoming_signal.resolution if snapshot.device.incoming_signal else None
+        ),
     ),
     MadvrEnvySensorDescription(
         key="incoming_signal_frame_rate",
         translation_key="incoming_signal_frame_rate",
         icon="mdi:speedometer",
-        value_fn=lambda snapshot: snapshot.device.incoming_signal.frame_rate if snapshot.device.incoming_signal else None,
+        value_fn=lambda snapshot: (
+            snapshot.device.incoming_signal.frame_rate if snapshot.device.incoming_signal else None
+        ),
     ),
     MadvrEnvySensorDescription(
         key="incoming_signal_aspect_ratio",
         translation_key="incoming_signal_aspect_ratio",
         icon="mdi:aspect-ratio",
-        value_fn=lambda snapshot: snapshot.device.incoming_signal.aspect_ratio if snapshot.device.incoming_signal else None,
+        value_fn=lambda snapshot: (
+            snapshot.device.incoming_signal.aspect_ratio
+            if snapshot.device.incoming_signal
+            else None
+        ),
     ),
     MadvrEnvySensorDescription(
         key="incoming_signal_hdr_mode",
         translation_key="incoming_signal_hdr_mode",
         icon="mdi:brightness-6",
-        value_fn=lambda snapshot: snapshot.device.incoming_signal.hdr_mode if snapshot.device.incoming_signal else None,
+        value_fn=lambda snapshot: (
+            snapshot.device.incoming_signal.hdr_mode if snapshot.device.incoming_signal else None
+        ),
     ),
     MadvrEnvySensorDescription(
         key="outgoing_signal_resolution",
         translation_key="outgoing_signal_resolution",
         icon="mdi:video-output",
-        value_fn=lambda snapshot: snapshot.device.outgoing_signal.resolution if snapshot.device.outgoing_signal else None,
+        value_fn=lambda snapshot: (
+            snapshot.device.outgoing_signal.resolution if snapshot.device.outgoing_signal else None
+        ),
     ),
     MadvrEnvySensorDescription(
         key="outgoing_signal_frame_rate",
         translation_key="outgoing_signal_frame_rate",
         icon="mdi:speedometer-medium",
-        value_fn=lambda snapshot: snapshot.device.outgoing_signal.frame_rate if snapshot.device.outgoing_signal else None,
+        value_fn=lambda snapshot: (
+            snapshot.device.outgoing_signal.frame_rate if snapshot.device.outgoing_signal else None
+        ),
     ),
     MadvrEnvySensorDescription(
         key="outgoing_signal_hdr_mode",
         translation_key="outgoing_signal_hdr_mode",
         icon="mdi:brightness-5",
-        value_fn=lambda snapshot: snapshot.device.outgoing_signal.hdr_mode if snapshot.device.outgoing_signal else None,
+        value_fn=lambda snapshot: (
+            snapshot.device.outgoing_signal.hdr_mode if snapshot.device.outgoing_signal else None
+        ),
     ),
     MadvrEnvySensorDescription(
         key="aspect_ratio_name",
         translation_key="aspect_ratio_name",
         icon="mdi:format-letter-case",
-        value_fn=lambda snapshot: snapshot.device.aspect_ratio.name if snapshot.device.aspect_ratio else None,
+        value_fn=lambda snapshot: (
+            snapshot.device.aspect_ratio.name if snapshot.device.aspect_ratio else None
+        ),
     ),
     MadvrEnvySensorDescription(
         key="aspect_ratio_decimal",
         translation_key="aspect_ratio_decimal",
         icon="mdi:aspect-ratio",
-        value_fn=lambda snapshot: snapshot.device.aspect_ratio.decimal_ratio if snapshot.device.aspect_ratio else None,
+        value_fn=lambda snapshot: (
+            snapshot.device.aspect_ratio.decimal_ratio if snapshot.device.aspect_ratio else None
+        ),
     ),
     MadvrEnvySensorDescription(
         key="masking_ratio_decimal",
         translation_key="masking_ratio_decimal",
         icon="mdi:crop",
-        value_fn=lambda snapshot: snapshot.device.masking_ratio.decimal_ratio if snapshot.device.masking_ratio else None,
+        value_fn=lambda snapshot: (
+            snapshot.device.masking_ratio.decimal_ratio if snapshot.device.masking_ratio else None
+        ),
     ),
     MadvrEnvySensorDescription(
         key="active_profile",
@@ -185,4 +215,3 @@ class MadvrEnvySensor(MadvrEnvyEntity, SensorEntity):
         if not self.is_awake:
             return None
         return self.entity_description.value_fn(self.snapshot)
-
