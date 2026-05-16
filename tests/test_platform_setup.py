@@ -66,16 +66,19 @@ async def test_platform_setup_entity_counts(hass, mock_envy_client):
 
 def test_profile_catalog_active_name_branches():
     """Test profile catalog label fallbacks."""
-    assert ProfileCatalog().active_profile_name() is None
+    assert ProfileCatalog().active_profile_name("1") is None
     assert (
-        ProfileCatalog(active=ActiveProfile(group_id="1", index=2)).active_profile_name() == "1: 2"
+        ProfileCatalog(
+            active_profiles=(ActiveProfile(group_id="1", index="2"),)
+        ).active_profile_name("1")
+        == "1: 2"
     )
     catalog = ProfileCatalog(
         groups=(ProfileGroup(group_id="1", name="Cinema"),),
-        profiles=(Profile(profile_id="1_2", group_id="1", index=2, name="Night"),),
-        active=ActiveProfile(group_id="1", index=2),
+        profiles=(Profile(profile_id="1_2", group_id="1", index="2", name="Night"),),
+        active_profiles=(ActiveProfile(group_id="1", index="2"),),
     )
-    assert catalog.active_profile_name() == "Cinema: Night"
+    assert catalog.active_profile_name("1") == "Cinema: Night"
 
 
 def test_select_profile_id_parsing_branches():

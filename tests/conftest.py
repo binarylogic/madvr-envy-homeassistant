@@ -89,6 +89,7 @@ def mock_envy_client() -> MagicMock:
     state.profiles = {"1_1": "Day", "1_2": "Night"}
     state.active_profile_group = "1"
     state.active_profile_index = 2
+    state.active_profiles = {"1": 2}
 
     client.state = state
     client.connected = True

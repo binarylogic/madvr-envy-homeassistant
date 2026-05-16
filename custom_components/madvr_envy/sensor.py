@@ -168,12 +168,6 @@ SENSORS: tuple[MadvrEnvySensorDescription, ...] = (
             snapshot.device.masking_ratio.decimal_ratio if snapshot.device.masking_ratio else None
         ),
     ),
-    MadvrEnvySensorDescription(
-        key="active_profile",
-        translation_key="active_profile",
-        icon="mdi:playlist-play",
-        value_fn=lambda snapshot: snapshot.device.profiles.active_profile_name(),
-    ),
 )
 
 

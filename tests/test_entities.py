@@ -13,7 +13,6 @@ from custom_components.madvr_envy.coordinator import MadvrEnvyCoordinator
 from custom_components.madvr_envy.lifecycle import PowerState, WakeMode
 from custom_components.madvr_envy.remote import MadvrEnvyRemote
 from custom_components.madvr_envy.select import (
-    MadvrEnvyActiveProfileSelect,
     MadvrEnvyPowerModeSelect,
     MadvrEnvyProfileGroupSelect,
 )
@@ -86,23 +85,6 @@ async def test_button_calls_client(hass, mock_envy_client):
     await entity.async_press()
 
     mock_envy_client.restart.assert_awaited_once()
-
-    await coordinator.async_shutdown()
-
-
-async def test_profile_select_options_and_command(hass, mock_envy_client):
-    """Test profile select renders options and sends activate command."""
-    coordinator = MadvrEnvyCoordinator(hass, mock_envy_client, entry_id="test-entry")
-    await coordinator.async_start()
-
-    entity = MadvrEnvyActiveProfileSelect(coordinator)
-
-    assert "Cinema: Day" in entity.options
-    assert "Cinema: Night" in entity.options
-    assert entity.current_option == "Cinema: Night"
-
-    await entity.async_select_option("Cinema: Day")
-    mock_envy_client.activate_profile.assert_awaited_once_with("1", 1)
 
     await coordinator.async_shutdown()
 
@@ -272,7 +254,7 @@ async def test_profile_group_select(hass, mock_envy_client):
     assert entity.current_option == "Cinema: Night"
 
     await entity.async_select_option("Cinema: Day")
-    mock_envy_client.activate_profile.assert_awaited_with("1", 1)
+    mock_envy_client.activate_profile.assert_awaited_with("1", "1")
 
     await coordinator.async_shutdown()
 
@@ -309,19 +291,6 @@ async def test_profile_group_select_name_fallback(hass, mock_envy_client):
     await coordinator.async_shutdown()
 
 
-async def test_active_profile_select_unavailable_offline(hass, mock_envy_client):
-    """Test active profile is unavailable when asleep."""
-    coordinator = MadvrEnvyCoordinator(hass, mock_envy_client, entry_id="test-entry")
-    await coordinator.async_start()
-
-    await coordinator.async_standby()
-    entity = MadvrEnvyActiveProfileSelect(coordinator)
-    assert entity.available is False
-    assert entity.current_option is None
-
-    await coordinator.async_shutdown()
-
-
 async def test_profile_select_unavailable_without_options(hass, mock_envy_client):
     """Test profile selects do not expose empty selectable controls."""
     coordinator = MadvrEnvyCoordinator(hass, mock_envy_client, entry_id="test-entry")
@@ -333,11 +302,8 @@ async def test_profile_select_unavailable_without_options(hass, mock_envy_client
     )
     coordinator._publish()
 
-    active_profile = MadvrEnvyActiveProfileSelect(coordinator)
     group_profile = MadvrEnvyProfileGroupSelect(coordinator, "custom")
 
-    assert active_profile.available is False
-    assert active_profile.options == []
     assert group_profile.available is False
     assert group_profile.options == []
 

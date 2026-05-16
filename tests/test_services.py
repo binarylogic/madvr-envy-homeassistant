@@ -38,7 +38,7 @@ async def test_services_dispatch_commands(hass, mock_config_entry, mock_envy_cli
     await hass.services.async_call(DOMAIN, SERVICE_RUN_ACTION, {"action": "restart"}, blocking=True)
 
     mock_envy_client.key_press.assert_any_await("MENU")
-    mock_envy_client.activate_profile.assert_awaited_with("1", 2)
+    mock_envy_client.activate_profile.assert_awaited_with("1", "2")
     mock_envy_client.restart.assert_awaited_once()
 
     assert await hass.config_entries.async_unload(mock_config_entry.entry_id)

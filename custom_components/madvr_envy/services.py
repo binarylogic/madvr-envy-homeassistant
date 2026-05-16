@@ -27,7 +27,7 @@ async def async_setup_services(hass: HomeAssistant) -> None:
 
     async def handle_activate_profile(call: ServiceCall) -> None:
         group_id = str(call.data["group_id"])
-        profile_index = int(call.data["profile_index"])
+        profile_index = str(call.data["profile_index"])
         for runtime_data in _iter_runtime_data(hass):
             await runtime_data.client.activate_profile(group_id, profile_index)
 
@@ -50,7 +50,7 @@ async def async_setup_services(hass: HomeAssistant) -> None:
         schema=vol.Schema(
             {
                 vol.Required("group_id"): str,
-                vol.Required("profile_index"): vol.Coerce(int),
+                vol.Required("profile_index"): vol.Coerce(str),
             }
         ),
     )

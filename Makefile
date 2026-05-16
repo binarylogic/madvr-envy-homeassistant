@@ -11,7 +11,7 @@ install:
 	@if [ -d "$(MADVR_ENVY_LIB_PATH)" ]; then \
 		UV_CACHE_DIR=.uv-cache uv pip install -p $(VENV_PYTHON) -e $(MADVR_ENVY_LIB_PATH); \
 	else \
-		UV_CACHE_DIR=.uv-cache uv pip install -p $(VENV_PYTHON) "madvr-envy>=1.0.0"; \
+		UV_CACHE_DIR=.uv-cache uv pip install -p $(VENV_PYTHON) "madvr-envy>=2.0.0"; \
 	fi
 
 test:

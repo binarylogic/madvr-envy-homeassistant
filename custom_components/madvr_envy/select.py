@@ -21,7 +21,7 @@ class ProfileOption:
 
     option: str
     group_id: str
-    profile_index: int
+    profile_index: str
 
 
 async def async_setup_entry(
@@ -32,7 +32,6 @@ async def async_setup_entry(
     coordinator = entry.runtime_data.coordinator
     entities: list[MadvrEnvyEntity] = [
         MadvrEnvyPowerModeSelect(coordinator),
-        MadvrEnvyActiveProfileSelect(coordinator),
     ]
 
     for group_id in _known_profile_group_ids(hass, entry, coordinator):
@@ -72,52 +71,6 @@ class MadvrEnvyPowerModeSelect(MadvrEnvyEntity, SelectEntity):
             await self._execute("PowerOff", self.coordinator.async_power_off)
 
 
-class MadvrEnvyActiveProfileSelect(MadvrEnvyEntity, SelectEntity):
-    """Select active profile by group/index."""
-
-    _attr_translation_key = "active_profile"
-    _attr_icon = "mdi:format-list-bulleted"
-
-    def __init__(self, coordinator) -> None:  # noqa: ANN001
-        super().__init__(coordinator, "active_profile")
-
-    @property
-    def available(self) -> bool:
-        return self.is_awake and bool(self.options)
-
-    @property
-    def options(self) -> list[str]:
-        return [entry.option for entry in self._profile_options]
-
-    @property
-    def current_option(self) -> str | None:
-        if not self.is_awake:
-            return None
-        active = self.snapshot.device.profiles.active
-        if active is None:
-            return None
-
-        for entry in self._profile_options:
-            if entry.group_id == active.group_id and entry.profile_index == active.index:
-                return entry.option
-        return None
-
-    async def async_select_option(self, option: str) -> None:
-        for entry in self._profile_options:
-            if entry.option == option:
-                await self._execute(
-                    f"ActivateProfile {entry.group_id}/{entry.profile_index}",
-                    lambda group_id=entry.group_id, profile_index=entry.profile_index: (
-                        self._client.activate_profile(group_id, profile_index)
-                    ),
-                )
-                return
-
-    @property
-    def _profile_options(self) -> list[ProfileOption]:
-        return _profile_options(self.snapshot)
-
-
 class MadvrEnvyProfileGroupSelect(MadvrEnvyEntity, SelectEntity):
     """Select active profile for a specific profile group."""
 
@@ -129,7 +82,7 @@ class MadvrEnvyProfileGroupSelect(MadvrEnvyEntity, SelectEntity):
 
     @property
     def available(self) -> bool:
-        return self.is_awake and bool(self.options)
+        return self.is_awake and self.current_option is not None
 
     @property
     def name(self) -> str:
@@ -147,8 +100,8 @@ class MadvrEnvyProfileGroupSelect(MadvrEnvyEntity, SelectEntity):
     def current_option(self) -> str | None:
         if not self.is_awake:
             return None
-        active = self.snapshot.device.profiles.active
-        if active is None or active.group_id != self._group_id:
+        active = self.snapshot.device.profiles.active_for_group(self._group_id)
+        if active is None:
             return None
         for entry in self._group_options:
             if entry.profile_index == active.index:
