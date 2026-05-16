@@ -1,5 +1,16 @@
 # Changelog
 
+## [1.0.0](https://github.com/binarylogic/madvr-envy-homeassistant/compare/v0.4.6...v1.0.0) (2026-05-16)
+
+
+### ⚠ BREAKING CHANGES
+
+* require madvr-envy 1.0.0 and remove HA-side protocol payload shaping in favor of typed device snapshots.
+
+### Features
+
+* consume typed madVR device snapshots ([aa0c0e0](https://github.com/binarylogic/madvr-envy-homeassistant/commit/aa0c0e06650a7665ea6c295ccc629118b76cc5d5))
+
 ## [0.4.6](https://github.com/binarylogic/madvr-envy-homeassistant/compare/v0.4.5...v0.4.6) (2026-04-12)
 
 
