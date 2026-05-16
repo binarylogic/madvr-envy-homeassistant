@@ -255,10 +255,7 @@ class MadvrEnvyCoordinator(DataUpdateCoordinator[MadvrEnvyRuntimeState]):
             self._power_state = power_state
 
     def _sync_profile_groups_from_device(self) -> None:
-        groups = {
-            group.group_id: group.name
-            for group in self._device_snapshot.profiles.groups
-        }
+        groups = {group.group_id: group.name for group in self._device_snapshot.profiles.groups}
         if groups:
             self._profile_groups = groups
 

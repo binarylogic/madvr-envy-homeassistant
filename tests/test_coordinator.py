@@ -158,9 +158,7 @@ async def test_coordinator_ensure_on_reenables_reconnect_and_schedules_bootstrap
     await coordinator.async_shutdown()
 
 
-async def test_coordinator_ensure_on_prefers_wol_over_live_power_command(
-    hass, mock_envy_client
-):
+async def test_coordinator_ensure_on_prefers_wol_over_live_power_command(hass, mock_envy_client):
     """Activation intent should use the explicit wake path immediately when available."""
     coordinator = MadvrEnvyCoordinator(
         hass,

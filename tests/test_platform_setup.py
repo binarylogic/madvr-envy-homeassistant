@@ -68,8 +68,7 @@ def test_profile_catalog_active_name_branches():
     """Test profile catalog label fallbacks."""
     assert ProfileCatalog().active_profile_name() is None
     assert (
-        ProfileCatalog(active=ActiveProfile(group_id="1", index=2)).active_profile_name()
-        == "1: 2"
+        ProfileCatalog(active=ActiveProfile(group_id="1", index=2)).active_profile_name() == "1: 2"
     )
     catalog = ProfileCatalog(
         groups=(ProfileGroup(group_id="1", name="Cinema"),),
