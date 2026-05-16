@@ -1,5 +1,16 @@
 # Changelog
 
+## [2.0.0](https://github.com/binarylogic/madvr-envy-homeassistant/compare/v1.0.0...v2.0.0) (2026-05-16)
+
+
+### ⚠ BREAKING CHANGES
+
+* require typed madVR profile catalog
+
+### Features
+
+* require typed madVR profile catalog ([a323bf4](https://github.com/binarylogic/madvr-envy-homeassistant/commit/a323bf47ed23c84c9b316f844f1377e89163a627))
+
 ## [1.0.0](https://github.com/binarylogic/madvr-envy-homeassistant/compare/v0.4.6...v1.0.0) (2026-05-16)
 
 
