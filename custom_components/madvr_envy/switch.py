@@ -29,7 +29,7 @@ class MadvrEnvyToneMapSwitch(MadvrEnvyEntity, SwitchEntity):
 
     @property
     def available(self) -> bool:
-        return self.can_send_live_commands
+        return self.can_send_live_commands and self.is_on is not None
 
     @property
     def is_on(self) -> bool | None:

@@ -81,12 +81,6 @@ SENSORS: tuple[MadvrEnvySensorDescription, ...] = (
         value_fn=lambda snapshot: snapshot.device.current_menu,
     ),
     MadvrEnvySensorDescription(
-        key="aspect_ratio_mode",
-        translation_key="aspect_ratio_mode",
-        icon="mdi:aspect-ratio",
-        value_fn=lambda snapshot: snapshot.device.aspect_ratio_mode,
-    ),
-    MadvrEnvySensorDescription(
         key="incoming_signal_resolution",
         translation_key="incoming_signal_resolution",
         icon="mdi:video-input-hdmi",
