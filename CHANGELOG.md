@@ -1,5 +1,12 @@
 # Changelog
 
+## [2.0.1](https://github.com/binarylogic/madvr-envy-homeassistant/compare/v2.0.0...v2.0.1) (2026-05-16)
+
+
+### Bug Fixes
+
+* hide unavailable madVR controls ([009d6a6](https://github.com/binarylogic/madvr-envy-homeassistant/commit/009d6a6c116b0bd86922d1939716d29d6ba5a5d4))
+
 ## [2.0.0](https://github.com/binarylogic/madvr-envy-homeassistant/compare/v1.0.0...v2.0.0) (2026-05-16)
 
 
