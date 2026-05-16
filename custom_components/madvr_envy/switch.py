@@ -35,7 +35,7 @@ class MadvrEnvyToneMapSwitch(MadvrEnvyEntity, SwitchEntity):
     def is_on(self) -> bool | None:
         if not self.is_awake:
             return None
-        value = self.snapshot.tone_map_enabled
+        value = self.snapshot.device.tone_map_enabled
         if value is None:
             return None
         return bool(value)

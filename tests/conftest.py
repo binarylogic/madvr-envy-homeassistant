@@ -7,6 +7,7 @@ from unittest.mock import AsyncMock, MagicMock
 
 import pytest
 from homeassistant.const import CONF_HOST, CONF_PORT
+from madvr_envy.runtime import device_snapshot_from_state
 from madvr_envy.state import EnvyState
 from pytest_homeassistant_custom_component.common import MockConfigEntry
 
@@ -91,10 +92,12 @@ def mock_envy_client() -> MagicMock:
 
     client.state = state
     client.connected = True
+    client.device_snapshot = device_snapshot_from_state(state, connected=True)
 
     client.start = AsyncMock()
     client.stop = AsyncMock()
     client.wait_synced = AsyncMock()
+    client.refresh_device = AsyncMock(return_value=client.device_snapshot)
 
     callback_handles: dict[str, object] = {}
 
@@ -123,6 +126,11 @@ def mock_envy_client() -> MagicMock:
     client.activate_profile = AsyncMock()
     client.get_mac_address = AsyncMock()
     client.get_temperatures = AsyncMock()
+    client.get_incoming_signal_info = AsyncMock()
+    client.get_outgoing_signal_info = AsyncMock()
+    client.get_aspect_ratio = AsyncMock()
+    client.get_masking_ratio = AsyncMock()
+    client.get_active_profile = AsyncMock()
     client.enum_profile_groups_collect = AsyncMock(
         return_value=[MagicMock(group_id="1", name="Cinema")]
     )

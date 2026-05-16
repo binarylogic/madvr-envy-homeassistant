@@ -7,6 +7,7 @@ from types import SimpleNamespace
 import pytest
 from homeassistant.exceptions import HomeAssistantError
 from homeassistant.helpers import entity_registry as er
+from madvr_envy.runtime import ActiveProfile, Profile, ProfileCatalog, ProfileGroup
 from pytest_homeassistant_custom_component.common import MockConfigEntry
 
 from custom_components.madvr_envy import binary_sensor, button, remote, select, sensor, switch
@@ -63,40 +64,24 @@ async def test_platform_setup_entity_counts(hass, mock_envy_client):
     await coordinator.async_shutdown()
 
 
-def test_temperature_value_helper_branches():
-    """Test temperature helper fallback behavior."""
-    assert sensor._temperature_value(MadvrEnvyRuntimeState(), 0) is None
-    assert sensor._temperature_value(MadvrEnvyRuntimeState(temperatures=(1, 2, 3, 4)), 9) is None
-    assert sensor._nested_value(None, "resolution") is None
-    assert sensor._nested_value({"aspect_ratio": "16:9"}, "aspect_ratio") == "16:9"
-    assert sensor._ratio_decimal_value(None) is None
-    assert sensor._ratio_decimal_value({"decimal_ratio": 2.259}) == 2.259
-    assert sensor._active_profile_value(MadvrEnvyRuntimeState()) is None
+def test_profile_catalog_active_name_branches():
+    """Test profile catalog label fallbacks."""
+    assert ProfileCatalog().active_profile_name() is None
     assert (
-        sensor._active_profile_value(
-            MadvrEnvyRuntimeState(active_profile_group="1", active_profile_index=2)
-        )
+        ProfileCatalog(active=ActiveProfile(group_id="1", index=2)).active_profile_name()
         == "1: 2"
     )
-    assert (
-        sensor._active_profile_value(
-            MadvrEnvyRuntimeState(
-                active_profile_group="1",
-                active_profile_index=2,
-                profile_groups={"1": "Cinema"},
-                profiles={"1_2": "Night"},
-            )
-        )
-        == "Cinema: Night"
+    catalog = ProfileCatalog(
+        groups=(ProfileGroup(group_id="1", name="Cinema"),),
+        profiles=(Profile(profile_id="1_2", group_id="1", index=2, name="Night"),),
+        active=ActiveProfile(group_id="1", index=2),
     )
+    assert catalog.active_profile_name() == "Cinema: Night"
 
 
 def test_select_profile_id_parsing_branches():
-    """Test profile id parsing edge cases."""
-    assert select._parse_profile_id("1_2", None) == ("1", 2)
-    assert select._parse_profile_id("2", "1") == ("1", 2)
-    assert select._parse_profile_id("invalid", "1") is None
-    assert select._build_profile_options({}) == []
+    """Test profile option construction."""
+    assert select._profile_options(MadvrEnvyRuntimeState()) == []
 
 
 class _DummyEntity(MadvrEnvyEntity):

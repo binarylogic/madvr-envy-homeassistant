@@ -2,7 +2,10 @@
 
 from __future__ import annotations
 
+from dataclasses import replace
 from unittest.mock import AsyncMock, patch
+
+from madvr_envy.runtime import ProfileCatalog
 
 from custom_components.madvr_envy.binary_sensor import BINARY_SENSORS, MadvrEnvyBinarySensor
 from custom_components.madvr_envy.button import BUTTONS, MadvrEnvyButton
@@ -147,6 +150,7 @@ async def test_power_sensor_stays_explicit_through_disconnect(hass, mock_envy_cl
         coordinator, next(item for item in SENSORS if item.key == "gpu_temperature")
     )
     assert power_sensor.native_value == "standby"
+    assert gpu_sensor.available is False
     assert gpu_sensor.native_value is None
 
     await coordinator.async_shutdown()
@@ -305,14 +309,36 @@ async def test_profile_group_select_name_fallback(hass, mock_envy_client):
     await coordinator.async_shutdown()
 
 
-async def test_active_profile_select_returns_unknown_offline(hass, mock_envy_client):
-    """Test active profile stays present but unknown when asleep."""
+async def test_active_profile_select_unavailable_offline(hass, mock_envy_client):
+    """Test active profile is unavailable when asleep."""
     coordinator = MadvrEnvyCoordinator(hass, mock_envy_client, entry_id="test-entry")
     await coordinator.async_start()
 
     await coordinator.async_standby()
     entity = MadvrEnvyActiveProfileSelect(coordinator)
-    assert entity.available is True
+    assert entity.available is False
     assert entity.current_option is None
+
+    await coordinator.async_shutdown()
+
+
+async def test_profile_select_unavailable_without_options(hass, mock_envy_client):
+    """Test profile selects do not expose empty selectable controls."""
+    coordinator = MadvrEnvyCoordinator(hass, mock_envy_client, entry_id="test-entry")
+    await coordinator.async_start()
+    coordinator._profile_groups = {}
+    coordinator._device_snapshot = replace(
+        coordinator._device_snapshot,
+        profiles=ProfileCatalog(),
+    )
+    coordinator._publish()
+
+    active_profile = MadvrEnvyActiveProfileSelect(coordinator)
+    group_profile = MadvrEnvyProfileGroupSelect(coordinator, "custom")
+
+    assert active_profile.available is False
+    assert active_profile.options == []
+    assert group_profile.available is False
+    assert group_profile.options == []
 
     await coordinator.async_shutdown()

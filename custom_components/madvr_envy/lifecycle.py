@@ -5,14 +5,7 @@ from __future__ import annotations
 from dataclasses import dataclass
 from enum import StrEnum
 
-
-class PowerState(StrEnum):
-    """Primary lifecycle state for the device."""
-
-    ON = "on"
-    STANDBY = "standby"
-    OFF = "off"
-    UNKNOWN = "unknown"
+from madvr_envy.runtime import PowerState
 
 
 class ConnectionState(StrEnum):

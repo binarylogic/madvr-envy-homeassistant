@@ -2,18 +2,26 @@
 
 from __future__ import annotations
 
+from dataclasses import dataclass
+
 from homeassistant.components.select import SelectEntity
 from homeassistant.config_entries import ConfigEntry
 from homeassistant.core import HomeAssistant
 from homeassistant.helpers import entity_registry as er
 from homeassistant.helpers.entity_platform import AddEntitiesCallback
 
-from madvr_envy.integration_bridge import ProfileOption
-from madvr_envy.integration_bridge import build_profile_options as lib_build_profile_options
-from madvr_envy.integration_bridge import parse_profile_id as lib_parse_profile_id
-
 from .entity import MadvrEnvyEntity
 from .lifecycle import PowerState
+from .models import MadvrEnvyRuntimeState
+
+
+@dataclass(frozen=True, slots=True)
+class ProfileOption:
+    """Profile label and activation target."""
+
+    option: str
+    group_id: str
+    profile_index: int
 
 
 async def async_setup_entry(
@@ -75,7 +83,7 @@ class MadvrEnvyActiveProfileSelect(MadvrEnvyEntity, SelectEntity):
 
     @property
     def available(self) -> bool:
-        return True
+        return self.is_awake and bool(self.options)
 
     @property
     def options(self) -> list[str]:
@@ -85,13 +93,12 @@ class MadvrEnvyActiveProfileSelect(MadvrEnvyEntity, SelectEntity):
     def current_option(self) -> str | None:
         if not self.is_awake:
             return None
-        active_group = self.snapshot.active_profile_group
-        active_index = self.snapshot.active_profile_index
-        if active_group is None or active_index is None:
+        active = self.snapshot.device.profiles.active
+        if active is None:
             return None
 
         for entry in self._profile_options:
-            if entry.group_id == active_group and entry.profile_index == active_index:
+            if entry.group_id == active.group_id and entry.profile_index == active.index:
                 return entry.option
         return None
 
@@ -108,7 +115,7 @@ class MadvrEnvyActiveProfileSelect(MadvrEnvyEntity, SelectEntity):
 
     @property
     def _profile_options(self) -> list[ProfileOption]:
-        return _build_profile_options(self.snapshot.profile_groups, self.snapshot.profiles)
+        return _profile_options(self.snapshot)
 
 
 class MadvrEnvyProfileGroupSelect(MadvrEnvyEntity, SelectEntity):
@@ -122,12 +129,12 @@ class MadvrEnvyProfileGroupSelect(MadvrEnvyEntity, SelectEntity):
 
     @property
     def available(self) -> bool:
-        return True
+        return self.is_awake and bool(self.options)
 
     @property
     def name(self) -> str:
         label = self._group_id
-        value = self.snapshot.profile_groups.get(self._group_id)
+        value = self.snapshot.device.profiles.group_name(self._group_id)
         if value:
             label = value
         return f"{label} Profile"
@@ -140,12 +147,11 @@ class MadvrEnvyProfileGroupSelect(MadvrEnvyEntity, SelectEntity):
     def current_option(self) -> str | None:
         if not self.is_awake:
             return None
-        active_group = self.snapshot.active_profile_group
-        active_index = self.snapshot.active_profile_index
-        if active_group != self._group_id or active_index is None:
+        active = self.snapshot.device.profiles.active
+        if active is None or active.group_id != self._group_id:
             return None
         for entry in self._group_options:
-            if entry.profile_index == active_index:
+            if entry.profile_index == active.index:
                 return entry.option
         return None
 
@@ -163,26 +169,21 @@ class MadvrEnvyProfileGroupSelect(MadvrEnvyEntity, SelectEntity):
 
     @property
     def _group_options(self) -> list[ProfileOption]:
-        all_options = _build_profile_options(self.snapshot.profile_groups, self.snapshot.profiles)
+        all_options = _profile_options(self.snapshot)
         return [entry for entry in all_options if entry.group_id == self._group_id]
 
 
-def _parse_profile_id(profile_id: str, fallback_group: object) -> tuple[str, int] | None:
-    return lib_parse_profile_id(profile_id, fallback_group)
-
-
-def _build_profile_options(
-    profile_groups: dict[str, str] | dict[str, object],
-    profiles: dict[str, str] | None = None,
-) -> list[ProfileOption]:
-    if profiles is None:
-        return lib_build_profile_options(profile_groups)
-    return lib_build_profile_options(
-        {
-            "profile_groups": profile_groups,
-            "profiles": profiles,
-        }
-    )
+def _profile_options(snapshot: MadvrEnvyRuntimeState) -> list[ProfileOption]:
+    options = [
+        ProfileOption(
+            option=f"{snapshot.device.profiles.group_name(profile.group_id)}: {profile.name}",
+            group_id=profile.group_id,
+            profile_index=profile.index,
+        )
+        for profile in snapshot.device.profiles.profiles
+    ]
+    options.sort(key=lambda option: option.option.casefold())
+    return options
 
 
 def _known_profile_group_ids(
@@ -199,6 +200,10 @@ def _known_profile_group_ids(
             if group_id not in seen:
                 seen.add(group_id)
                 group_ids.append(group_id)
+        for group in snapshot.device.profiles.groups:
+            if group.group_id not in seen:
+                seen.add(group.group_id)
+                group_ids.append(group.group_id)
 
     entry_id = getattr(entry, "entry_id", None)
     if entry_id is not None:

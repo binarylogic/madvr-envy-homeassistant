@@ -8,7 +8,7 @@ from typing import Any
 import voluptuous as vol
 from homeassistant.core import HomeAssistant, ServiceCall
 
-from madvr_envy.integration_bridge import action_names, resolve_action_method
+from madvr_envy.controls import action_names, resolve_action_method
 
 from .const import DOMAIN, SERVICE_ACTIVATE_PROFILE, SERVICE_PRESS_KEY, SERVICE_RUN_ACTION
 

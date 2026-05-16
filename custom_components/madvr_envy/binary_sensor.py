@@ -27,7 +27,7 @@ BINARY_SENSORS: tuple[MadvrEnvyBinarySensorDescription, ...] = (
         key="signal_present",
         translation_key="signal_present",
         device_class=BinarySensorDeviceClass.POWER,
-        value_fn=lambda snapshot: snapshot.signal_present,
+        value_fn=lambda snapshot: snapshot.device.signal_present,
     ),
 )
 
@@ -53,6 +53,10 @@ class MadvrEnvyBinarySensor(MadvrEnvyEntity, BinarySensorEntity):
     def __init__(self, coordinator, description: MadvrEnvyBinarySensorDescription) -> None:  # noqa: ANN001
         super().__init__(coordinator, description.key)
         self.entity_description = description
+
+    @property
+    def available(self) -> bool:
+        return self.is_awake
 
     @property
     def is_on(self) -> bool | None:

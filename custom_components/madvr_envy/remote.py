@@ -9,7 +9,7 @@ from homeassistant.config_entries import ConfigEntry
 from homeassistant.core import HomeAssistant
 from homeassistant.helpers.entity_platform import AddEntitiesCallback
 
-from madvr_envy.integration_bridge import iter_remote_operations, resolve_action_method
+from madvr_envy.controls import iter_remote_operations, resolve_action_method
 
 from .entity import MadvrEnvyEntity
 from .lifecycle import PowerState

@@ -3,17 +3,14 @@
 from __future__ import annotations
 
 import asyncio
-from collections.abc import Mapping
-from typing import Any
 
 from homeassistant.core import HomeAssistant
 from homeassistant.helpers.update_coordinator import DataUpdateCoordinator
 
 from madvr_envy import MadvrEnvyClient
 from madvr_envy import exceptions as envy_exceptions
-from madvr_envy.adapter import EnvyStateAdapter
-from madvr_envy.ha_bridge import HABridgeDispatcher, coordinator_payload
 from madvr_envy.protocol import PowerOffMessage, StandbyMessage
+from madvr_envy.runtime import EnvyDeviceSnapshot
 
 from .const import DEFAULT_SYNC_TIMEOUT, DOMAIN
 from .lifecycle import (
@@ -53,10 +50,6 @@ class MadvrEnvyCoordinator(DataUpdateCoordinator[MadvrEnvyRuntimeState]):
         self._store = MadvrEnvyStore(hass, entry_id)
         self._wake_mode = wake_mode
 
-        self._adapter = EnvyStateAdapter()
-        self._dispatcher = HABridgeDispatcher(event_emitter=self._emit_bus_event)
-
-        self._adapter_callback_handle: Any | None = None
         self._client_callback_registered = False
         self._started = False
         self._bootstrap_retry_task: asyncio.Task[None] | None = None
@@ -66,8 +59,7 @@ class MadvrEnvyCoordinator(DataUpdateCoordinator[MadvrEnvyRuntimeState]):
         self._power_state = PowerState.UNKNOWN
         self._mac_address = normalize_mac_address(configured_mac_address)
         self._profile_groups: dict[str, str] = {}
-        self._profiles: dict[str, str] = {}
-        self._payload: dict[str, Any] = {}
+        self._device_snapshot = EnvyDeviceSnapshot()
 
     async def async_start(self) -> None:
         """Start client and register callbacks once."""
@@ -78,12 +70,6 @@ class MadvrEnvyCoordinator(DataUpdateCoordinator[MadvrEnvyRuntimeState]):
 
         restored = await self._store.async_load()
         self._apply_restored_state(restored)
-
-        if self._adapter_callback_handle is None:
-            self._adapter_callback_handle = self.client.register_adapter_callback(
-                self._adapter,
-                self._handle_adapter_update,
-            )
 
         if not self._client_callback_registered:
             self.client.register_callback(self._handle_client_event)
@@ -116,10 +102,6 @@ class MadvrEnvyCoordinator(DataUpdateCoordinator[MadvrEnvyRuntimeState]):
         if self._save_task is not None:
             self._save_task.cancel()
             self._save_task = None
-
-        if self._adapter_callback_handle is not None:
-            self.client.deregister_adapter_callback(self._adapter_callback_handle)
-            self._adapter_callback_handle = None
 
         if self._client_callback_registered:
             self.client.deregister_callback(self._handle_client_event)
@@ -223,46 +205,38 @@ class MadvrEnvyCoordinator(DataUpdateCoordinator[MadvrEnvyRuntimeState]):
             protocol_message=PowerOffMessage(),
         )
 
-    def _emit_bus_event(self, event_type: str, event_data: dict[str, object]) -> None:
-        self.hass.bus.async_fire(event_type, event_data)
-
-    def _handle_adapter_update(self, snapshot, deltas, events) -> None:  # noqa: ANN001
-        update = self._dispatcher.handle_adapter_update(snapshot, deltas, events)
-        self._apply_payload(update.coordinator_data)
-        self._publish()
-
     def _handle_client_event(self, event: str, _message: object | None = None) -> None:
         if event == "disconnected":
             self._connection_state = ConnectionState.DISCONNECTED
             if self._power_state is PowerState.ON:
                 self._power_state = PowerState.UNKNOWN
+            self._device_snapshot = self.client.device_snapshot
             self._publish()
         elif event == "connected":
             self._connection_state = ConnectionState.CONNECTED
+            self._device_snapshot = self.client.device_snapshot
             self._publish()
             if not self.client.state.synced:
                 self._schedule_bootstrap_retry()
+        elif event == "received_message":
+            self._device_snapshot = self.client.device_snapshot
+            self._sync_power_state_from_device()
+            self._sync_profile_groups_from_device()
+            self._publish()
 
-    async def _prime_state(self) -> None:
-        """Best-effort startup priming for richer initial entity state."""
+    async def _async_publish_current_state(self) -> None:
+        """Refresh semantic device state and publish one synced snapshot."""
         try:
-            await self.client.get_temperatures()
-
-            groups = await self.client.enum_profile_groups_collect()
-            for group in groups:
-                await self.client.enum_profiles_collect(group.group_id)
+            self._device_snapshot = await self.client.refresh_device()
         except (
             TimeoutError,
             envy_exceptions.MadvrEnvyError,
             OSError,
         ) as err:
-            self.logger.debug("Startup priming skipped due to command failure: %s", err)
-
-    async def _async_publish_current_state(self) -> None:
-        """Prime extra state and publish one synced snapshot."""
-        await self._prime_state()
-        snapshot, _, _ = self._adapter.update(self.client.state)
-        self._apply_payload(coordinator_payload(snapshot))
+            self.logger.debug("Device refresh incomplete: %s", err)
+            self._device_snapshot = self.client.device_snapshot
+        self._sync_power_state_from_device()
+        self._sync_profile_groups_from_device()
         self._publish()
 
     def _apply_restored_state(self, restored: RestoredRuntimeState) -> None:
@@ -271,33 +245,22 @@ class MadvrEnvyCoordinator(DataUpdateCoordinator[MadvrEnvyRuntimeState]):
         else:
             self._power_state = PowerState.UNKNOWN
         self._profile_groups = dict(restored.profile_groups or {})
-        self._profiles = dict(restored.profiles or {})
 
-    def _apply_payload(self, payload: Mapping[str, Any]) -> None:
-        self._payload.update(dict(payload))
-
-        power_state = _derive_power_state(payload)
+    def _sync_power_state_from_device(self) -> None:
+        power_state = self._device_snapshot.power_state
         if power_state is not PowerState.UNKNOWN and (
             self._connection_state is ConnectionState.CONNECTED
             or power_state in (PowerState.STANDBY, PowerState.OFF)
         ):
             self._power_state = power_state
 
-        profile_groups = payload.get("profile_groups")
-        if isinstance(profile_groups, dict):
-            self._profile_groups = {
-                str(group_id): str(group_name)
-                for group_id, group_name in profile_groups.items()
-                if isinstance(group_id, str) and isinstance(group_name, str)
-            }
-
-        profiles = payload.get("profiles")
-        if isinstance(profiles, dict):
-            self._profiles = {
-                str(profile_id): str(profile_name)
-                for profile_id, profile_name in profiles.items()
-                if isinstance(profile_id, str) and isinstance(profile_name, str)
-            }
+    def _sync_profile_groups_from_device(self) -> None:
+        groups = {
+            group.group_id: group.name
+            for group in self._device_snapshot.profiles.groups
+        }
+        if groups:
+            self._profile_groups = groups
 
     def _publish(self) -> None:
         self.async_set_updated_data(self._build_data())
@@ -305,6 +268,7 @@ class MadvrEnvyCoordinator(DataUpdateCoordinator[MadvrEnvyRuntimeState]):
 
     def _build_data(self) -> MadvrEnvyRuntimeState:
         return MadvrEnvyRuntimeState(
+            device=self._device_snapshot,
             power_state=self._power_state,
             connection_state=self._connection_state,
             wake_mode=self._wake_mode,
@@ -314,20 +278,7 @@ class MadvrEnvyCoordinator(DataUpdateCoordinator[MadvrEnvyRuntimeState]):
             can_power_on=self.can_power_on,
             can_power_down=self.can_power_down,
             can_remote=self.can_remote,
-            version=_string_value(self._payload.get("version")),
-            current_menu=_string_value(self._payload.get("current_menu")),
-            aspect_ratio_mode=_string_value(self._payload.get("aspect_ratio_mode")),
-            temperatures=_temperatures_from_payload(self._payload.get("temperatures")),
-            incoming_signal=_signal_from_payload(self._payload.get("incoming_signal")),
-            outgoing_signal=_signal_from_payload(self._payload.get("outgoing_signal")),
-            aspect_ratio=_ratio_from_payload(self._payload.get("aspect_ratio")),
-            masking_ratio=_masking_ratio_from_payload(self._payload.get("masking_ratio")),
-            signal_present=_bool_value(self._payload.get("signal_present")),
-            active_profile_group=_string_value(self._payload.get("active_profile_group")),
-            active_profile_index=_int_value(self._payload.get("active_profile_index")),
             profile_groups=dict(self._profile_groups),
-            profiles=dict(self._profiles),
-            tone_map_enabled=_bool_value(self._payload.get("tone_map_enabled")),
         )
 
     def _schedule_save(self) -> None:
@@ -339,7 +290,6 @@ class MadvrEnvyCoordinator(DataUpdateCoordinator[MadvrEnvyRuntimeState]):
                     power_state=self._power_state,
                     mac_address=self._mac_address,
                     profile_groups=dict(self._profile_groups),
-                    profiles=dict(self._profiles),
                 )
             ),
             f"{DOMAIN} persist runtime",
@@ -399,71 +349,8 @@ class MadvrEnvyCoordinator(DataUpdateCoordinator[MadvrEnvyRuntimeState]):
         self._connection_state = ConnectionState.DISCONNECTED
         self.client.state.apply(protocol_message)
         self._power_state = target_state
+        self._device_snapshot = self.client.device_snapshot
         self._publish()
-
-
-def _derive_power_state(payload: Mapping[str, Any]) -> PowerState:
-    raw = payload.get("power_state")
-    if isinstance(raw, str):
-        try:
-            return PowerState(raw)
-        except ValueError:
-            return PowerState.UNKNOWN
-    return PowerState.UNKNOWN
-
-
-def _string_value(value: object) -> str | None:
-    return value if isinstance(value, str) else None
-
-
-def _int_value(value: object) -> int | None:
-    return value if isinstance(value, int) else None
-
-
-def _bool_value(value: object) -> bool | None:
-    return value if isinstance(value, bool) else None
-
-
-def _temperatures_from_payload(value: object) -> tuple[int, int, int, int] | None:
-    if not isinstance(value, (tuple, list)) or len(value) < 4:
-        return None
-    first_four = tuple(item for item in value[:4] if isinstance(item, int))
-    if len(first_four) != 4:
-        return None
-    return first_four  # type: ignore[return-value]
-
-
-def _signal_from_payload(value: object) -> dict[str, str] | None:
-    if not isinstance(value, Mapping):
-        return None
-    signal: dict[str, str] = {}
-    for key in ("resolution", "frame_rate", "aspect_ratio", "hdr_mode"):
-        field = value.get(key)
-        if isinstance(field, str):
-            signal[key] = field
-    return signal or None
-
-
-def _ratio_from_payload(value: object) -> dict[str, str | float] | None:
-    if not isinstance(value, Mapping):
-        return None
-    ratio: dict[str, str | float] = {}
-    name = value.get("name")
-    if isinstance(name, str):
-        ratio["name"] = name
-    decimal_ratio = value.get("decimal_ratio")
-    if isinstance(decimal_ratio, (int, float)):
-        ratio["decimal_ratio"] = float(decimal_ratio)
-    return ratio or None
-
-
-def _masking_ratio_from_payload(value: object) -> dict[str, float] | None:
-    if not isinstance(value, Mapping):
-        return None
-    decimal_ratio = value.get("decimal_ratio")
-    if isinstance(decimal_ratio, (int, float)):
-        return {"decimal_ratio": float(decimal_ratio)}
-    return None
 
 
 def _default_device_identifier(client: MadvrEnvyClient) -> str:

@@ -37,7 +37,7 @@ class MadvrEnvyEntity(CoordinatorEntity[MadvrEnvyCoordinator]):
             name=f"{NAME} ({coordinator.device_label})",
             manufacturer=MANUFACTURER,
             model=MODEL,
-            sw_version=self.snapshot.version,
+            sw_version=self.snapshot.device.version,
             configuration_url=f"http://{self._client.host}",
         )
 
