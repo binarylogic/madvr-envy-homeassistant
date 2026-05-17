@@ -1,5 +1,12 @@
 # Changelog
 
+## [2.0.2](https://github.com/binarylogic/madvr-envy-homeassistant/compare/v2.0.1...v2.0.2) (2026-05-17)
+
+
+### Bug Fixes
+
+* actively wake and resync Envy ([680ed34](https://github.com/binarylogic/madvr-envy-homeassistant/commit/680ed3412448deb8a6d3513cb7b6c9e8ae52a698))
+
 ## [2.0.1](https://github.com/binarylogic/madvr-envy-homeassistant/compare/v2.0.0...v2.0.1) (2026-05-16)
 
 
