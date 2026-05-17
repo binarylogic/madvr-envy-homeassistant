@@ -153,13 +153,15 @@ async def test_coordinator_ensure_on_reenables_reconnect_and_schedules_bootstrap
         await coordinator.async_ensure_on()
 
     assert mock_envy_client.auto_reconnect is True
-    mock_wol.assert_awaited_once_with("00:11:22:33:44:55")
+    mock_wol.assert_awaited_once_with("00:11:22:33:44:55", "192.168.1.100")
+    mock_envy_client.start.assert_awaited()
+    mock_envy_client.wait_synced.assert_awaited()
 
     await coordinator.async_shutdown()
 
 
-async def test_coordinator_ensure_on_prefers_wol_over_live_power_command(hass, mock_envy_client):
-    """Activation intent should use the explicit wake path immediately when available."""
+async def test_coordinator_ensure_on_does_not_toggle_when_already_on(hass, mock_envy_client):
+    """Activation intent should not send POWER when refresh says the Envy is already on."""
     coordinator = MadvrEnvyCoordinator(
         hass,
         mock_envy_client,
@@ -172,7 +174,32 @@ async def test_coordinator_ensure_on_prefers_wol_over_live_power_command(hass, m
         await coordinator.async_ensure_on()
 
     mock_envy_client.power_on.assert_not_awaited()
-    mock_wol.assert_awaited_once_with("00:11:22:33:44:55")
+    mock_wol.assert_awaited_once_with("00:11:22:33:44:55", "192.168.1.100")
+
+    await coordinator.async_shutdown()
+
+
+async def test_coordinator_ensure_on_sends_power_when_reachable_but_asleep(hass, mock_envy_client):
+    """Activation intent should issue live POWER after reconnecting to a sleeping Envy."""
+    asleep_snapshot = replace(
+        mock_envy_client.device_snapshot,
+        power_state=PowerState.STANDBY,
+    )
+    mock_envy_client.refresh_device.return_value = asleep_snapshot
+    mock_envy_client.device_snapshot = asleep_snapshot
+    coordinator = MadvrEnvyCoordinator(
+        hass,
+        mock_envy_client,
+        entry_id="test-entry",
+        configured_mac_address="00:11:22:33:44:55",
+    )
+    await coordinator.async_start()
+
+    with patch("custom_components.madvr_envy.coordinator.async_send_magic_packet") as mock_wol:
+        await coordinator.async_ensure_on()
+
+    mock_wol.assert_awaited_once_with("00:11:22:33:44:55", "192.168.1.100")
+    mock_envy_client.power_on.assert_awaited_once()
 
     await coordinator.async_shutdown()
 

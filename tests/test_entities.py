@@ -108,7 +108,7 @@ async def test_power_mode_select_calls_expected_commands(hass, mock_envy_client)
         "custom_components.madvr_envy.coordinator.async_send_magic_packet", AsyncMock()
     ) as send_wol:
         await entity.async_select_option("on")
-        send_wol.assert_awaited_once_with("00:11:22:33:44:55")
+        send_wol.assert_awaited_once_with("00:11:22:33:44:55", "192.168.1.100")
 
     mock_envy_client.standby.assert_awaited_once()
     mock_envy_client.power_off.assert_awaited_once()
@@ -158,7 +158,7 @@ async def test_power_on_uses_wol_when_disconnected(hass, mock_envy_client):
         "custom_components.madvr_envy.coordinator.async_send_magic_packet", AsyncMock()
     ) as send_wol:
         await entity.async_press()
-        send_wol.assert_awaited_once_with("00:11:22:33:44:55")
+        send_wol.assert_awaited_once_with("00:11:22:33:44:55", "192.168.1.100")
 
     await coordinator.async_shutdown()
 
@@ -239,7 +239,7 @@ async def test_power_mode_select_only_wakes_when_disconnected(hass, mock_envy_cl
         "custom_components.madvr_envy.coordinator.async_send_magic_packet", AsyncMock()
     ) as send_wol:
         await power_mode.async_select_option("on")
-        send_wol.assert_awaited_once_with("00:11:22:33:44:55")
+        send_wol.assert_awaited_once_with("00:11:22:33:44:55", "192.168.1.100")
 
     await coordinator.async_shutdown()
 
@@ -271,7 +271,7 @@ async def test_remote_send_command_and_actions(hass, mock_envy_client):
     await entity.async_send_command(["MENU", "action:restart", "INFO"])
     await entity.async_send_command(["", 123, "action:unknown"])  # type: ignore[list-item]
 
-    mock_envy_client.power_on.assert_awaited_once()
+    mock_envy_client.power_on.assert_not_awaited()
     mock_envy_client.key_press.assert_any_await("MENU")
     mock_envy_client.key_press.assert_any_await("INFO")
     mock_envy_client.standby.assert_awaited()

@@ -178,16 +178,27 @@ class MadvrEnvyCoordinator(DataUpdateCoordinator[MadvrEnvyRuntimeState]):
     async def async_ensure_on(self) -> None:
         """Ensure the device wakes using the configured activation path."""
         self.client.auto_reconnect = True
-        if self.can_wake and self._mac_address is not None:
-            await async_send_magic_packet(self._mac_address)
-            self._schedule_bootstrap_retry()
-            return
+
+        if self._wake_mode is not WakeMode.NONE and self._mac_address is not None:
+            await async_send_magic_packet(self._mac_address, self.client.host)
+
         if self.can_send_live_commands:
-            await self.client.power_on()
+            await self._async_publish_current_state()
+            if self._power_state is not PowerState.ON:
+                await self.client.power_on()
+                await self._async_connect_and_publish_until_synced()
             return
-        if not self.can_wake or self._mac_address is None:
+
+        if not self.can_wake:
             raise envy_exceptions.NotConnectedError("No wake path configured")
-        raise envy_exceptions.NotConnectedError("No active power-on path available")
+
+        if await self._async_connect_and_publish_until_synced():
+            if self._power_state is not PowerState.ON and self.can_send_live_commands:
+                await self.client.power_on()
+                await self._async_connect_and_publish_until_synced()
+            return
+
+        self._schedule_bootstrap_retry()
 
     async def async_standby(self) -> None:
         """Put the device into standby."""
@@ -304,21 +315,33 @@ class MadvrEnvyCoordinator(DataUpdateCoordinator[MadvrEnvyRuntimeState]):
     async def _async_retry_bootstrap_until_synced(self) -> None:
         """Keep the integration loaded while the device is offline at startup."""
         try:
-            while self._started and not self.client.state.synced:
-                try:
-                    await self.client.start()
-                    await self.client.wait_synced(timeout=self._sync_timeout)
-                    self._connection_state = ConnectionState.CONNECTED
-                    await self._async_publish_current_state()
+            while self._started and not self.can_send_live_commands:
+                if await self._async_connect_and_publish_until_synced():
                     return
-                except (
-                    TimeoutError,
-                    envy_exceptions.ConnectionFailedError,
-                    envy_exceptions.ConnectionTimeoutError,
-                ):
-                    await asyncio.sleep(self._BOOTSTRAP_RETRY_INTERVAL_SECONDS)
+                await asyncio.sleep(self._BOOTSTRAP_RETRY_INTERVAL_SECONDS)
         except asyncio.CancelledError:
             return
+
+    async def _async_connect_and_publish_until_synced(self) -> bool:
+        """Try one transport bootstrap cycle and publish a fresh device snapshot."""
+        try:
+            await self.client.start()
+            await self.client.wait_synced(timeout=self._sync_timeout)
+        except (
+            TimeoutError,
+            envy_exceptions.ConnectionFailedError,
+            envy_exceptions.ConnectionTimeoutError,
+            envy_exceptions.NotConnectedError,
+            OSError,
+        ):
+            self._connection_state = ConnectionState.DISCONNECTED
+            self._device_snapshot = self.client.device_snapshot
+            self._publish()
+            return False
+
+        self._connection_state = ConnectionState.CONNECTED
+        await self._async_publish_current_state()
+        return self.can_send_live_commands
 
     async def _async_apply_sleep_transition(
         self,
