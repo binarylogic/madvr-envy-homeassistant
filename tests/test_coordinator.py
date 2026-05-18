@@ -6,6 +6,7 @@ from dataclasses import replace
 from unittest.mock import patch
 
 from madvr_envy import exceptions as envy_exceptions
+from madvr_envy.protocol import DisplayChangedMessage
 
 from custom_components.madvr_envy.coordinator import MadvrEnvyCoordinator
 from custom_components.madvr_envy.lifecycle import PowerState, RestoredRuntimeState
@@ -47,6 +48,27 @@ async def test_coordinator_received_message_publishes_device_snapshot(hass, mock
 
     assert coordinator.data is not None
     assert coordinator.data.device.version == "1.0.1"
+
+    await coordinator.async_shutdown()
+
+
+async def test_coordinator_refreshes_video_geometry_after_display_changes(hass, mock_envy_client):
+    """Display change events should re-query aspect and masking telemetry."""
+    coordinator = MadvrEnvyCoordinator(hass, mock_envy_client, entry_id="test-entry")
+    coordinator._VIDEO_GEOMETRY_REFRESH_DELAY_SECONDS = 0
+    await coordinator.async_start()
+
+    callback = mock_envy_client._test_callbacks["client"]
+    refreshed = replace(mock_envy_client.device_snapshot, version="geometry-refreshed")
+    mock_envy_client.refresh_video_geometry.return_value = refreshed
+
+    callback("received_message", DisplayChangedMessage())
+    await hass.async_block_till_done()
+    await hass.async_block_till_done()
+
+    mock_envy_client.refresh_video_geometry.assert_awaited_once()
+    assert coordinator.data is not None
+    assert coordinator.data.device.version == "geometry-refreshed"
 
     await coordinator.async_shutdown()
 

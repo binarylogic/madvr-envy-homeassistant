@@ -99,6 +99,7 @@ def mock_envy_client() -> MagicMock:
     client.stop = AsyncMock()
     client.wait_synced = AsyncMock()
     client.refresh_device = AsyncMock(return_value=client.device_snapshot)
+    client.refresh_video_geometry = AsyncMock(return_value=client.device_snapshot)
 
     callback_handles: dict[str, object] = {}
 

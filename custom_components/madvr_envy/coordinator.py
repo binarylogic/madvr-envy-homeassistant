@@ -9,7 +9,7 @@ from homeassistant.helpers.update_coordinator import DataUpdateCoordinator
 
 from madvr_envy import MadvrEnvyClient
 from madvr_envy import exceptions as envy_exceptions
-from madvr_envy.protocol import PowerOffMessage, StandbyMessage
+from madvr_envy.protocol import DisplayChangedMessage, PowerOffMessage, StandbyMessage
 from madvr_envy.runtime import EnvyDeviceSnapshot
 
 from .const import DEFAULT_SYNC_TIMEOUT, DOMAIN
@@ -29,6 +29,7 @@ class MadvrEnvyCoordinator(DataUpdateCoordinator[MadvrEnvyRuntimeState]):
     """Bridge madVR Envy push updates into a stable HA runtime model."""
 
     _BOOTSTRAP_RETRY_INTERVAL_SECONDS = 5.0
+    _VIDEO_GEOMETRY_REFRESH_DELAY_SECONDS = 0.75
 
     def __init__(
         self,
@@ -53,6 +54,7 @@ class MadvrEnvyCoordinator(DataUpdateCoordinator[MadvrEnvyRuntimeState]):
         self._client_callback_registered = False
         self._started = False
         self._bootstrap_retry_task: asyncio.Task[None] | None = None
+        self._video_geometry_refresh_task: asyncio.Task[None] | None = None
         self._save_task: asyncio.Task[None] | None = None
 
         self._connection_state = ConnectionState.DISCONNECTED
@@ -98,6 +100,10 @@ class MadvrEnvyCoordinator(DataUpdateCoordinator[MadvrEnvyRuntimeState]):
         if self._bootstrap_retry_task is not None:
             self._bootstrap_retry_task.cancel()
             self._bootstrap_retry_task = None
+
+        if self._video_geometry_refresh_task is not None:
+            self._video_geometry_refresh_task.cancel()
+            self._video_geometry_refresh_task = None
 
         if self._save_task is not None:
             self._save_task.cancel()
@@ -216,7 +222,7 @@ class MadvrEnvyCoordinator(DataUpdateCoordinator[MadvrEnvyRuntimeState]):
             protocol_message=PowerOffMessage(),
         )
 
-    def _handle_client_event(self, event: str, _message: object | None = None) -> None:
+    def _handle_client_event(self, event: str, message: object | None = None) -> None:
         if event == "disconnected":
             self._connection_state = ConnectionState.DISCONNECTED
             if self._power_state is PowerState.ON:
@@ -234,6 +240,8 @@ class MadvrEnvyCoordinator(DataUpdateCoordinator[MadvrEnvyRuntimeState]):
             self._sync_power_state_from_device()
             self._sync_profile_groups_from_device()
             self._publish()
+            if isinstance(message, DisplayChangedMessage):
+                self._schedule_video_geometry_refresh()
 
     async def _async_publish_current_state(self) -> None:
         """Refresh semantic device state and publish one synced snapshot."""
@@ -311,6 +319,29 @@ class MadvrEnvyCoordinator(DataUpdateCoordinator[MadvrEnvyRuntimeState]):
             self._async_retry_bootstrap_until_synced(),
             f"{DOMAIN} bootstrap retry",
         )
+
+    def _schedule_video_geometry_refresh(self) -> None:
+        """Refresh aspect/masking after display geometry settles."""
+        if self._video_geometry_refresh_task is not None and not self._video_geometry_refresh_task.done():
+            self._video_geometry_refresh_task.cancel()
+        self._video_geometry_refresh_task = self.hass.async_create_background_task(
+            self._async_refresh_video_geometry_after_delay(),
+            f"{DOMAIN} video geometry refresh",
+        )
+
+    async def _async_refresh_video_geometry_after_delay(self) -> None:
+        """Debounce geometry changes and publish freshly queried aspect/masking state."""
+        try:
+            await asyncio.sleep(self._VIDEO_GEOMETRY_REFRESH_DELAY_SECONDS)
+            if not self.can_send_live_commands:
+                return
+            self._device_snapshot = await self.client.refresh_video_geometry()
+            self._sync_power_state_from_device()
+            self._publish()
+        except asyncio.CancelledError:
+            return
+        except (TimeoutError, envy_exceptions.MadvrEnvyError, OSError) as err:
+            self.logger.debug("Video geometry refresh incomplete: %s", err)
 
     async def _async_retry_bootstrap_until_synced(self) -> None:
         """Keep the integration loaded while the device is offline at startup."""
