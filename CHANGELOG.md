@@ -1,5 +1,14 @@
 # Changelog
 
+## [2.0.3](https://github.com/binarylogic/madvr-envy-homeassistant/compare/v2.0.2...v2.0.3) (2026-05-21)
+
+
+### Bug Fixes
+
+* refresh geometry after display changes ([53b47ee](https://github.com/binarylogic/madvr-envy-homeassistant/commit/53b47ee26f3903b518c7a6c69520381c0abefc71))
+* retry Envy activation until on ([eb5ee92](https://github.com/binarylogic/madvr-envy-homeassistant/commit/eb5ee92f5769053a10cbc2235a2a104df8211c2c))
+* wake Envy before full protocol sync ([6aeab84](https://github.com/binarylogic/madvr-envy-homeassistant/commit/6aeab84f3cc58ddd2b2ef881c11bd7d25319052c))
+
 ## [2.0.2](https://github.com/binarylogic/madvr-envy-homeassistant/compare/v2.0.1...v2.0.2) (2026-05-17)
 
 
