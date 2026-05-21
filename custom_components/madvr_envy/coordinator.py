@@ -54,6 +54,7 @@ class MadvrEnvyCoordinator(DataUpdateCoordinator[MadvrEnvyRuntimeState]):
         self._client_callback_registered = False
         self._started = False
         self._bootstrap_retry_task: asyncio.Task[None] | None = None
+        self._activation_retry_task: asyncio.Task[None] | None = None
         self._video_geometry_refresh_task: asyncio.Task[None] | None = None
         self._save_task: asyncio.Task[None] | None = None
 
@@ -101,6 +102,10 @@ class MadvrEnvyCoordinator(DataUpdateCoordinator[MadvrEnvyRuntimeState]):
             self._bootstrap_retry_task.cancel()
             self._bootstrap_retry_task = None
 
+        if self._activation_retry_task is not None:
+            self._activation_retry_task.cancel()
+            self._activation_retry_task = None
+
         if self._video_geometry_refresh_task is not None:
             self._video_geometry_refresh_task.cancel()
             self._video_geometry_refresh_task = None
@@ -113,7 +118,7 @@ class MadvrEnvyCoordinator(DataUpdateCoordinator[MadvrEnvyRuntimeState]):
             self.client.deregister_callback(self._handle_client_event)
             self._client_callback_registered = False
 
-        await self.client.stop()
+        await self._async_stop_client_safely()
         self._started = False
 
     async def _async_update_data(self) -> MadvrEnvyRuntimeState:
@@ -185,30 +190,42 @@ class MadvrEnvyCoordinator(DataUpdateCoordinator[MadvrEnvyRuntimeState]):
         """Ensure the device wakes using the configured activation path."""
         self.client.auto_reconnect = True
 
-        if self._wake_mode is not WakeMode.NONE and self._mac_address is not None:
-            await async_send_magic_packet(self._mac_address, self.client.host)
-
-        if self.can_send_live_commands:
-            await self._async_publish_current_state()
-            if self._power_state is not PowerState.ON:
-                await self.client.power_on()
-                await self._async_connect_and_publish_until_synced()
+        if await self._async_wake_once():
             return
 
         if not self.can_wake:
             raise envy_exceptions.NotConnectedError("No wake path configured")
 
-        if await self._async_connect_and_publish_until_synced():
-            if self._power_state is not PowerState.ON and self.can_send_live_commands:
-                await self.client.power_on()
-                await self._async_connect_and_publish_until_synced()
-            return
+        self._schedule_activation_retry()
+
+    async def _async_wake_once(self) -> bool:
+        """Run one explicit wake pass without surfacing expected sleep/off races."""
+        if self._wake_mode is not WakeMode.NONE and self._mac_address is not None:
+            await async_send_magic_packet(self._mac_address, self.client.host)
+
+        if self.can_send_live_commands:
+            await self._async_publish_current_state()
+            if self._power_state is PowerState.ON:
+                return True
+            await self._async_send_power_on_over_live_transport()
+            if await self._async_connect_and_publish_until_synced():
+                return self._power_state is PowerState.ON
+            return False
 
         if await self._async_send_power_on_over_live_transport():
-            await self._async_connect_and_publish_until_synced()
-            return
+            if await self._async_connect_and_publish_until_synced():
+                return self._power_state is PowerState.ON
+            return False
 
-        self._schedule_bootstrap_retry()
+        if await self._async_connect_and_publish_until_synced():
+            if self._power_state is PowerState.ON:
+                return True
+            if self.can_send_live_commands:
+                await self._async_send_power_on_over_live_transport()
+                if await self._async_connect_and_publish_until_synced():
+                    return self._power_state is PowerState.ON
+
+        return False
 
     async def async_standby(self) -> None:
         """Put the device into standby."""
@@ -324,6 +341,15 @@ class MadvrEnvyCoordinator(DataUpdateCoordinator[MadvrEnvyRuntimeState]):
             f"{DOMAIN} bootstrap retry",
         )
 
+    def _schedule_activation_retry(self) -> None:
+        """Retry activation intent until the Envy reports on or the wake window expires."""
+        if self._activation_retry_task is not None and not self._activation_retry_task.done():
+            return
+        self._activation_retry_task = self.hass.async_create_background_task(
+            self._async_retry_activation_until_on(),
+            f"{DOMAIN} activation retry",
+        )
+
     def _schedule_video_geometry_refresh(self) -> None:
         """Refresh aspect/masking after display geometry settles."""
         if self._video_geometry_refresh_task is not None and not self._video_geometry_refresh_task.done():
@@ -352,6 +378,19 @@ class MadvrEnvyCoordinator(DataUpdateCoordinator[MadvrEnvyRuntimeState]):
         try:
             while self._started and not self.can_send_live_commands:
                 if await self._async_connect_and_publish_until_synced():
+                    return
+                await asyncio.sleep(self._BOOTSTRAP_RETRY_INTERVAL_SECONDS)
+        except asyncio.CancelledError:
+            return
+
+    async def _async_retry_activation_until_on(self) -> None:
+        """Keep applying activation intent while the Envy wakes from standby/off."""
+        deadline = self.hass.loop.time() + 180
+        try:
+            while self._started and self._power_state is not PowerState.ON:
+                if await self._async_wake_once():
+                    return
+                if self.hass.loop.time() >= deadline:
                     return
                 await asyncio.sleep(self._BOOTSTRAP_RETRY_INTERVAL_SECONDS)
         except asyncio.CancelledError:
@@ -394,7 +433,22 @@ class MadvrEnvyCoordinator(DataUpdateCoordinator[MadvrEnvyRuntimeState]):
             OSError,
         ) as err:
             self.logger.debug("Best-effort Envy POWER wake failed: %s", err)
+            await self._async_stop_client_safely()
             return False
+
+    async def _async_stop_client_safely(self) -> None:
+        """Stop the protocol client without surfacing expected transport races."""
+        try:
+            await self.client.stop()
+        except (
+            RuntimeError,
+            TimeoutError,
+            envy_exceptions.NotConnectedError,
+            envy_exceptions.ConnectionFailedError,
+            envy_exceptions.ConnectionTimeoutError,
+            OSError,
+        ) as err:
+            self.logger.debug("Ignoring Envy client stop race: %s", err)
 
     async def _async_apply_sleep_transition(
         self,
@@ -418,7 +472,7 @@ class MadvrEnvyCoordinator(DataUpdateCoordinator[MadvrEnvyRuntimeState]):
                 target_state.value,
                 err,
             )
-        await self.client.stop()
+        await self._async_stop_client_safely()
         self._connection_state = ConnectionState.DISCONNECTED
         self.client.state.apply(protocol_message)
         self._power_state = target_state
