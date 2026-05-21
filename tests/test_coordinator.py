@@ -175,9 +175,7 @@ async def test_coordinator_ignores_stale_on_payload_while_disconnected(hass, moc
     await coordinator.async_shutdown()
 
 
-async def test_coordinator_ensure_on_reenables_reconnect(
-    hass, mock_envy_client
-):
+async def test_coordinator_ensure_on_reenables_reconnect(hass, mock_envy_client):
     """Wake path should resume reconnect attempts after WoL."""
     coordinator = MadvrEnvyCoordinator(
         hass,
