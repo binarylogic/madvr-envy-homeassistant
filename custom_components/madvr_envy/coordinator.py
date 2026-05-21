@@ -352,7 +352,10 @@ class MadvrEnvyCoordinator(DataUpdateCoordinator[MadvrEnvyRuntimeState]):
 
     def _schedule_video_geometry_refresh(self) -> None:
         """Refresh aspect/masking after display geometry settles."""
-        if self._video_geometry_refresh_task is not None and not self._video_geometry_refresh_task.done():
+        if (
+            self._video_geometry_refresh_task is not None
+            and not self._video_geometry_refresh_task.done()
+        ):
             self._video_geometry_refresh_task.cancel()
         self._video_geometry_refresh_task = self.hass.async_create_background_task(
             self._async_refresh_video_geometry_after_delay(),
