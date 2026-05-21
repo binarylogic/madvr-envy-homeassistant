@@ -204,6 +204,10 @@ class MadvrEnvyCoordinator(DataUpdateCoordinator[MadvrEnvyRuntimeState]):
                 await self._async_connect_and_publish_until_synced()
             return
 
+        if await self._async_send_power_on_over_live_transport():
+            await self._async_connect_and_publish_until_synced()
+            return
+
         self._schedule_bootstrap_retry()
 
     async def async_standby(self) -> None:
@@ -373,6 +377,24 @@ class MadvrEnvyCoordinator(DataUpdateCoordinator[MadvrEnvyRuntimeState]):
         self._connection_state = ConnectionState.CONNECTED
         await self._async_publish_current_state()
         return self.can_send_live_commands
+
+    async def _async_send_power_on_over_live_transport(self) -> bool:
+        """Send one POWER pulse if TCP is reachable but not fully synced yet."""
+        try:
+            await self.client.start()
+            if not self.client.connected:
+                return False
+            await self.client.power_on(wait_for_ack=False)
+            return True
+        except (
+            TimeoutError,
+            envy_exceptions.ConnectionFailedError,
+            envy_exceptions.ConnectionTimeoutError,
+            envy_exceptions.NotConnectedError,
+            OSError,
+        ) as err:
+            self.logger.debug("Best-effort Envy POWER wake failed: %s", err)
+            return False
 
     async def _async_apply_sleep_transition(
         self,

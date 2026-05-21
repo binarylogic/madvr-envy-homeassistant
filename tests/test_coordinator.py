@@ -226,6 +226,30 @@ async def test_coordinator_ensure_on_sends_power_when_reachable_but_asleep(hass,
     await coordinator.async_shutdown()
 
 
+async def test_coordinator_ensure_on_pulses_power_when_tcp_connects_before_sync(
+    hass, mock_envy_client
+):
+    """Activation should not require full protocol sync before sending POWER."""
+    coordinator = MadvrEnvyCoordinator(
+        hass,
+        mock_envy_client,
+        entry_id="test-entry",
+        configured_mac_address="00:11:22:33:44:55",
+    )
+    await coordinator.async_start()
+    await coordinator.async_standby()
+
+    mock_envy_client.wait_synced.side_effect = TimeoutError()
+
+    with patch("custom_components.madvr_envy.coordinator.async_send_magic_packet") as mock_wol:
+        await coordinator.async_ensure_on()
+
+    mock_wol.assert_awaited_once_with("00:11:22:33:44:55", "192.168.1.100")
+    mock_envy_client.power_on.assert_awaited_once_with(wait_for_ack=False)
+
+    await coordinator.async_shutdown()
+
+
 async def test_coordinator_power_on_uses_live_transport_only(hass, mock_envy_client):
     """Explicit live power-on command should not perform Wake-on-LAN."""
     coordinator = MadvrEnvyCoordinator(
