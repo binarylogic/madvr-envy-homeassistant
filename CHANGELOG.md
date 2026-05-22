@@ -1,5 +1,12 @@
 # Changelog
 
+## [2.0.4](https://github.com/binarylogic/madvr-envy-homeassistant/compare/v2.0.3...v2.0.4) (2026-05-22)
+
+
+### Bug Fixes
+
+* make Envy wake activation idempotent ([9b4c499](https://github.com/binarylogic/madvr-envy-homeassistant/commit/9b4c499387ce7b4b47baad176bd3c3345550f9a7))
+
 ## [2.0.3](https://github.com/binarylogic/madvr-envy-homeassistant/compare/v2.0.2...v2.0.3) (2026-05-21)
 
 
