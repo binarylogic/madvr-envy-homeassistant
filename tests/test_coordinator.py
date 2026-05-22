@@ -213,7 +213,7 @@ async def test_coordinator_ensure_on_does_not_toggle_when_already_on(hass, mock_
         await coordinator.async_ensure_on()
 
     mock_envy_client.power_on.assert_not_awaited()
-    mock_wol.assert_any_await("00:11:22:33:44:55", "192.168.1.100")
+    mock_wol.assert_not_awaited()
 
     await coordinator.async_shutdown()
 
@@ -293,12 +293,32 @@ async def test_coordinator_ensure_on_schedules_retry_when_live_power_races_offli
     mock_envy_client.refresh_device.return_value = offline_snapshot
     mock_envy_client.power_on.side_effect = envy_exceptions.NotConnectedError()
     mock_envy_client.wait_synced.side_effect = TimeoutError()
+    coordinator._power_state = PowerState.OFF
 
     with patch("custom_components.madvr_envy.coordinator.async_send_magic_packet") as mock_wol:
         await coordinator.async_ensure_on()
 
     mock_wol.assert_any_await("00:11:22:33:44:55", "192.168.1.100")
     mock_envy_client.power_on.assert_awaited()
+
+    await coordinator.async_shutdown()
+
+
+async def test_coordinator_live_power_pulse_is_one_shot_per_activation(hass, mock_envy_client):
+    """Activation must not spam POWER because the Envy treats it as a toggle."""
+    coordinator = MadvrEnvyCoordinator(
+        hass,
+        mock_envy_client,
+        entry_id="test-entry",
+        configured_mac_address="00:11:22:33:44:55",
+    )
+    await coordinator.async_start()
+    coordinator._activation_live_power_sent = False
+
+    assert await coordinator._async_send_power_on_over_live_transport() is True
+    assert await coordinator._async_send_power_on_over_live_transport() is False
+
+    mock_envy_client.power_on.assert_awaited_once_with(wait_for_ack=False)
 
     await coordinator.async_shutdown()
 

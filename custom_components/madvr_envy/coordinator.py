@@ -57,6 +57,7 @@ class MadvrEnvyCoordinator(DataUpdateCoordinator[MadvrEnvyRuntimeState]):
         self._activation_retry_task: asyncio.Task[None] | None = None
         self._video_geometry_refresh_task: asyncio.Task[None] | None = None
         self._save_task: asyncio.Task[None] | None = None
+        self._activation_live_power_sent = False
 
         self._connection_state = ConnectionState.DISCONNECTED
         self._power_state = PowerState.UNKNOWN
@@ -189,6 +190,14 @@ class MadvrEnvyCoordinator(DataUpdateCoordinator[MadvrEnvyRuntimeState]):
     async def async_ensure_on(self) -> None:
         """Ensure the device wakes using the configured activation path."""
         self.client.auto_reconnect = True
+        if self._power_state is PowerState.ON:
+            return
+        if self._activation_retry_task is not None and not self._activation_retry_task.done():
+            if self._wake_mode is not WakeMode.NONE and self._mac_address is not None:
+                await async_send_magic_packet(self._mac_address, self.client.host)
+            return
+
+        self._activation_live_power_sent = False
 
         if await self._async_wake_once():
             return
@@ -293,6 +302,8 @@ class MadvrEnvyCoordinator(DataUpdateCoordinator[MadvrEnvyRuntimeState]):
             or power_state in (PowerState.STANDBY, PowerState.OFF)
         ):
             self._power_state = power_state
+            if power_state is PowerState.ON:
+                self._activation_live_power_sent = False
 
     def _sync_profile_groups_from_device(self) -> None:
         groups = {group.group_id: group.name for group in self._device_snapshot.profiles.groups}
@@ -421,11 +432,14 @@ class MadvrEnvyCoordinator(DataUpdateCoordinator[MadvrEnvyRuntimeState]):
         return self.can_send_live_commands
 
     async def _async_send_power_on_over_live_transport(self) -> bool:
-        """Send one POWER pulse if TCP is reachable but not fully synced yet."""
+        """Send one POWER pulse for the active wake intent if TCP is reachable."""
+        if self._activation_live_power_sent:
+            return False
         try:
             await self.client.start()
             if not self.client.connected:
                 return False
+            self._activation_live_power_sent = True
             await self.client.power_on(wait_for_ack=False)
             return True
         except (
@@ -477,6 +491,7 @@ class MadvrEnvyCoordinator(DataUpdateCoordinator[MadvrEnvyRuntimeState]):
             )
         await self._async_stop_client_safely()
         self._connection_state = ConnectionState.DISCONNECTED
+        self._activation_live_power_sent = False
         self.client.state.apply(protocol_message)
         self._power_state = target_state
         self._device_snapshot = self.client.device_snapshot
