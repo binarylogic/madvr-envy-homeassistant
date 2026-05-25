@@ -1,5 +1,12 @@
 # Changelog
 
+## [2.0.5](https://github.com/binarylogic/madvr-envy-homeassistant/compare/v2.0.4...v2.0.5) (2026-05-25)
+
+
+### Bug Fixes
+
+* retry Envy power after failed activation pulse ([59689ca](https://github.com/binarylogic/madvr-envy-homeassistant/commit/59689cac117be2a353ba59e5c7654af81027609e))
+
 ## [2.0.4](https://github.com/binarylogic/madvr-envy-homeassistant/compare/v2.0.3...v2.0.4) (2026-05-22)
 
 
