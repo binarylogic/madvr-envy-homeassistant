@@ -304,6 +304,29 @@ async def test_coordinator_ensure_on_schedules_retry_when_live_power_races_offli
     await coordinator.async_shutdown()
 
 
+async def test_coordinator_retries_live_power_after_failed_pulse(hass, mock_envy_client):
+    """A failed live POWER attempt must not consume the one-shot activation pulse."""
+    coordinator = MadvrEnvyCoordinator(
+        hass,
+        mock_envy_client,
+        entry_id="test-entry",
+        configured_mac_address="00:11:22:33:44:55",
+    )
+    await coordinator.async_start()
+    mock_envy_client.power_on.side_effect = [
+        envy_exceptions.NotConnectedError(),
+        None,
+    ]
+
+    assert await coordinator._async_send_power_on_over_live_transport() is False
+    assert coordinator._activation_live_power_sent is False
+    assert await coordinator._async_send_power_on_over_live_transport() is True
+
+    assert mock_envy_client.power_on.await_count == 2
+
+    await coordinator.async_shutdown()
+
+
 async def test_coordinator_live_power_pulse_is_one_shot_per_activation(hass, mock_envy_client):
     """Activation must not spam POWER because the Envy treats it as a toggle."""
     coordinator = MadvrEnvyCoordinator(

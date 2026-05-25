@@ -439,8 +439,8 @@ class MadvrEnvyCoordinator(DataUpdateCoordinator[MadvrEnvyRuntimeState]):
             await self.client.start()
             if not self.client.connected:
                 return False
-            self._activation_live_power_sent = True
             await self.client.power_on(wait_for_ack=False)
+            self._activation_live_power_sent = True
             return True
         except (
             TimeoutError,
