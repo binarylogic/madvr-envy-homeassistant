@@ -1,18 +1,19 @@
-.PHONY: install test test-cov test-fast lint format format-check clean check
+.PHONY: install lock test test-cov test-fast lint format format-check clean check
 
 VENV_PYTHON := .venv/bin/python
 RUFF := .venv/bin/ruff
 PYTEST := .venv/bin/pytest
 MADVR_ENVY_LIB_PATH ?= ../py-madvr-envy
+UV_CACHE_DIR ?= .uv-cache
 
 install:
-	UV_CACHE_DIR=.uv-cache uv venv --clear .venv
-	UV_CACHE_DIR=.uv-cache uv pip install -p $(VENV_PYTHON) -r requirements_test.txt
+	UV_CACHE_DIR=$(UV_CACHE_DIR) uv sync --locked --no-sources
 	@if [ -d "$(MADVR_ENVY_LIB_PATH)" ]; then \
-		UV_CACHE_DIR=.uv-cache uv pip install -p $(VENV_PYTHON) -e $(MADVR_ENVY_LIB_PATH); \
-	else \
-		UV_CACHE_DIR=.uv-cache uv pip install -p $(VENV_PYTHON) "madvr-envy>=2.0.0"; \
+		UV_CACHE_DIR=$(UV_CACHE_DIR) uv pip install -p $(VENV_PYTHON) -e $(MADVR_ENVY_LIB_PATH); \
 	fi
+
+lock:
+	UV_CACHE_DIR=$(UV_CACHE_DIR) uv lock --no-sources
 
 test:
 	$(PYTEST)
