@@ -9,8 +9,9 @@ from homeassistant.helpers.update_coordinator import DataUpdateCoordinator
 
 from madvr_envy import MadvrEnvyClient
 from madvr_envy import exceptions as envy_exceptions
-from madvr_envy.protocol import DisplayChangedMessage, PowerOffMessage, StandbyMessage
+from madvr_envy.protocol import PowerOffMessage, StandbyMessage
 from madvr_envy.runtime import EnvyDeviceSnapshot
+from madvr_envy.runtime_manager import EnvyRuntime, RefreshPolicy
 
 from .const import DEFAULT_SYNC_TIMEOUT, DOMAIN
 from .lifecycle import (
@@ -31,6 +32,7 @@ class MadvrEnvyCoordinator(DataUpdateCoordinator[MadvrEnvyRuntimeState]):
     _BOOTSTRAP_RETRY_INTERVAL_SECONDS = 5.0
     _VIDEO_GEOMETRY_REFRESH_DELAY_SECONDS = 0.75
     _VIDEO_GEOMETRY_POLL_INTERVAL_SECONDS = 10.0
+    _VIDEO_GEOMETRY_STALE_AFTER_SECONDS = 15.0
 
     def __init__(
         self,
@@ -46,18 +48,25 @@ class MadvrEnvyCoordinator(DataUpdateCoordinator[MadvrEnvyRuntimeState]):
     ) -> None:
         super().__init__(hass, logger=client.logger, name=DOMAIN)
         self.client = client
+        self.runtime = EnvyRuntime(
+            client,
+            policy=RefreshPolicy(
+                volatile_video_interval=self._VIDEO_GEOMETRY_POLL_INTERVAL_SECONDS,
+                geometry_debounce=self._VIDEO_GEOMETRY_REFRESH_DELAY_SECONDS,
+                stale_after=self._VIDEO_GEOMETRY_STALE_AFTER_SECONDS,
+                sync_timeout=sync_timeout,
+            ),
+        )
         self._sync_timeout = sync_timeout
         self.device_identifier = device_identifier or _default_device_identifier(client)
         self.device_label = device_label or _default_device_label(client)
         self._store = MadvrEnvyStore(hass, entry_id)
         self._wake_mode = wake_mode
 
-        self._client_callback_registered = False
+        self._runtime_unsubscribe = self.runtime.subscribe(self._handle_runtime_snapshot)
         self._started = False
         self._bootstrap_retry_task: asyncio.Task[None] | None = None
         self._activation_retry_task: asyncio.Task[None] | None = None
-        self._video_geometry_refresh_task: asyncio.Task[None] | None = None
-        self._video_geometry_poll_task: asyncio.Task[None] | None = None
         self._save_task: asyncio.Task[None] | None = None
         self._activation_live_power_sent = False
 
@@ -77,19 +86,11 @@ class MadvrEnvyCoordinator(DataUpdateCoordinator[MadvrEnvyRuntimeState]):
         restored = await self._store.async_load()
         self._apply_restored_state(restored)
 
-        if not self._client_callback_registered:
-            self.client.register_callback(self._handle_client_event)
-            self._client_callback_registered = True
-
         self._started = True
         self._publish()
-        self._schedule_video_geometry_poll()
 
         try:
-            await self.client.start()
-            await self.client.wait_synced(timeout=self._sync_timeout)
-            self._connection_state = ConnectionState.CONNECTED
-            await self._async_publish_current_state()
+            await self.runtime.start()
         except (
             TimeoutError,
             envy_exceptions.ConnectionFailedError,
@@ -110,23 +111,11 @@ class MadvrEnvyCoordinator(DataUpdateCoordinator[MadvrEnvyRuntimeState]):
             self._activation_retry_task.cancel()
             self._activation_retry_task = None
 
-        if self._video_geometry_refresh_task is not None:
-            self._video_geometry_refresh_task.cancel()
-            self._video_geometry_refresh_task = None
-
-        if self._video_geometry_poll_task is not None:
-            self._video_geometry_poll_task.cancel()
-            self._video_geometry_poll_task = None
-
         if self._save_task is not None:
             self._save_task.cancel()
             self._save_task = None
 
-        if self._client_callback_registered:
-            self.client.deregister_callback(self._handle_client_event)
-            self._client_callback_registered = False
-
-        await self._async_stop_client_safely()
+        await self.runtime.stop()
         self._started = False
 
     async def _async_update_data(self) -> MadvrEnvyRuntimeState:
@@ -259,31 +248,23 @@ class MadvrEnvyCoordinator(DataUpdateCoordinator[MadvrEnvyRuntimeState]):
             protocol_message=PowerOffMessage(),
         )
 
-    def _handle_client_event(self, event: str, message: object | None = None) -> None:
-        if event == "disconnected":
+    def _handle_runtime_snapshot(self, snapshot: EnvyDeviceSnapshot) -> None:
+        """Publish one freshness-qualified library runtime snapshot."""
+        self._device_snapshot = snapshot
+        if snapshot.can_send_live_commands:
+            self._connection_state = ConnectionState.CONNECTED
+        else:
             self._connection_state = ConnectionState.DISCONNECTED
             if self._power_state is PowerState.ON:
                 self._power_state = PowerState.UNKNOWN
-            self._device_snapshot = self.client.device_snapshot
-            self._publish()
-        elif event == "connected":
-            self._connection_state = ConnectionState.CONNECTED
-            self._device_snapshot = self.client.device_snapshot
-            self._publish()
-            if not self.client.state.synced:
-                self._schedule_bootstrap_retry()
-        elif event == "received_message":
-            self._device_snapshot = self.client.device_snapshot
-            self._sync_power_state_from_device()
-            self._sync_profile_groups_from_device()
-            self._publish()
-            if isinstance(message, DisplayChangedMessage):
-                self._schedule_video_geometry_refresh()
+        self._sync_power_state_from_device()
+        self._sync_profile_groups_from_device()
+        self._publish()
 
     async def _async_publish_current_state(self) -> None:
         """Refresh semantic device state and publish one synced snapshot."""
         try:
-            self._device_snapshot = await self.client.refresh_device()
+            self._device_snapshot = await self.runtime.refresh_bootstrap()
         except (
             TimeoutError,
             envy_exceptions.MadvrEnvyError,
@@ -368,57 +349,6 @@ class MadvrEnvyCoordinator(DataUpdateCoordinator[MadvrEnvyRuntimeState]):
             f"{DOMAIN} activation retry",
         )
 
-    def _schedule_video_geometry_refresh(self) -> None:
-        """Refresh aspect/masking after display geometry settles."""
-        if (
-            self._video_geometry_refresh_task is not None
-            and not self._video_geometry_refresh_task.done()
-        ):
-            self._video_geometry_refresh_task.cancel()
-        self._video_geometry_refresh_task = self.hass.async_create_background_task(
-            self._async_refresh_video_geometry_after_delay(),
-            f"{DOMAIN} video geometry refresh",
-        )
-
-    def _schedule_video_geometry_poll(self) -> None:
-        """Keep video geometry fresh even when the Envy misses a display-change event."""
-        if self._video_geometry_poll_task is not None and not self._video_geometry_poll_task.done():
-            return
-        self._video_geometry_poll_task = self.hass.async_create_background_task(
-            self._async_poll_video_geometry(),
-            f"{DOMAIN} video geometry poll",
-        )
-
-    async def _async_refresh_video_geometry_after_delay(self) -> None:
-        """Debounce geometry changes and publish freshly queried aspect/masking state."""
-        try:
-            await asyncio.sleep(self._VIDEO_GEOMETRY_REFRESH_DELAY_SECONDS)
-            if not self.can_send_live_commands:
-                return
-            self._device_snapshot = await self.client.refresh_video_geometry()
-            self._sync_power_state_from_device()
-            self._publish()
-        except asyncio.CancelledError:
-            return
-        except (TimeoutError, envy_exceptions.MadvrEnvyError, OSError) as err:
-            self.logger.debug("Video geometry refresh incomplete: %s", err)
-
-    async def _async_poll_video_geometry(self) -> None:
-        """Periodically refresh aspect/masking while the processor is awake."""
-        try:
-            while self._started:
-                await asyncio.sleep(self._VIDEO_GEOMETRY_POLL_INTERVAL_SECONDS)
-                if not self.can_send_live_commands or self._power_state is not PowerState.ON:
-                    continue
-                try:
-                    self._device_snapshot = await self.client.refresh_video_geometry()
-                    self._sync_power_state_from_device()
-                    self._publish()
-                except (TimeoutError, envy_exceptions.MadvrEnvyError, OSError) as err:
-                    self.logger.debug("Video geometry poll incomplete: %s", err)
-        except asyncio.CancelledError:
-            return
-
     async def _async_retry_bootstrap_until_synced(self) -> None:
         """Keep the integration loaded while the device is offline at startup."""
         try:
@@ -445,8 +375,7 @@ class MadvrEnvyCoordinator(DataUpdateCoordinator[MadvrEnvyRuntimeState]):
     async def _async_connect_and_publish_until_synced(self) -> bool:
         """Try one transport bootstrap cycle and publish a fresh device snapshot."""
         try:
-            await self.client.start()
-            await self.client.wait_synced(timeout=self._sync_timeout)
+            await self.runtime.start()
         except (
             TimeoutError,
             envy_exceptions.ConnectionFailedError,
@@ -459,8 +388,6 @@ class MadvrEnvyCoordinator(DataUpdateCoordinator[MadvrEnvyRuntimeState]):
             self._publish()
             return False
 
-        self._connection_state = ConnectionState.CONNECTED
-        await self._async_publish_current_state()
         return self.can_send_live_commands
 
     async def _async_send_power_on_over_live_transport(self) -> bool:
@@ -521,7 +448,7 @@ class MadvrEnvyCoordinator(DataUpdateCoordinator[MadvrEnvyRuntimeState]):
                 target_state.value,
                 err,
             )
-        await self._async_stop_client_safely()
+        await self.runtime.stop()
         self._connection_state = ConnectionState.DISCONNECTED
         self._activation_live_power_sent = False
         self.client.state.apply(protocol_message)

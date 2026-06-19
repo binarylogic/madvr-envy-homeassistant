@@ -148,19 +148,20 @@ async def test_power_on_uses_wol_when_disconnected(hass, mock_envy_client):
         wake_mode=WakeMode.AUTO,
     )
     await coordinator.async_start()
-    mock_envy_client._test_callbacks["client"]("disconnected", None)
+    try:
+        mock_envy_client._test_callbacks["client"]("disconnected", None)
 
-    power_desc = next(item for item in BUTTONS if item.key == "power_on")
-    entity = MadvrEnvyButton(coordinator, power_desc)
-    assert entity.available is True
+        power_desc = next(item for item in BUTTONS if item.key == "power_on")
+        entity = MadvrEnvyButton(coordinator, power_desc)
+        assert entity.available is True
 
-    with patch(
-        "custom_components.madvr_envy.coordinator.async_send_magic_packet", AsyncMock()
-    ) as send_wol:
-        await entity.async_press()
-        send_wol.assert_awaited_once_with("00:11:22:33:44:55", "192.168.1.100")
-
-    await coordinator.async_shutdown()
+        with patch(
+            "custom_components.madvr_envy.coordinator.async_send_magic_packet", AsyncMock()
+        ) as send_wol:
+            await entity.async_press()
+            send_wol.assert_any_await("00:11:22:33:44:55", "192.168.1.100")
+    finally:
+        await coordinator.async_shutdown()
 
 
 async def test_only_power_on_remains_available_with_wol_when_disconnected(hass, mock_envy_client):

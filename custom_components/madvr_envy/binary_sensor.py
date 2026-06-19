@@ -29,6 +29,11 @@ BINARY_SENSORS: tuple[MadvrEnvyBinarySensorDescription, ...] = (
         device_class=BinarySensorDeviceClass.POWER,
         value_fn=lambda snapshot: snapshot.device.signal_present,
     ),
+    MadvrEnvyBinarySensorDescription(
+        key="video_geometry_trusted",
+        translation_key="video_geometry_trusted",
+        value_fn=lambda snapshot: snapshot.device.video.trusted,
+    ),
 )
 
 

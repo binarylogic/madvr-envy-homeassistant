@@ -143,7 +143,9 @@ SENSORS: tuple[MadvrEnvySensorDescription, ...] = (
         translation_key="aspect_ratio_name",
         icon="mdi:format-letter-case",
         value_fn=lambda snapshot: (
-            snapshot.device.aspect_ratio.name if snapshot.device.aspect_ratio else None
+            snapshot.device.video.aspect_ratio.name
+            if snapshot.device.video.trusted and snapshot.device.video.aspect_ratio
+            else None
         ),
     ),
     MadvrEnvySensorDescription(
@@ -151,7 +153,9 @@ SENSORS: tuple[MadvrEnvySensorDescription, ...] = (
         translation_key="aspect_ratio_decimal",
         icon="mdi:aspect-ratio",
         value_fn=lambda snapshot: (
-            snapshot.device.aspect_ratio.decimal_ratio if snapshot.device.aspect_ratio else None
+            snapshot.device.video.aspect_ratio.decimal_ratio
+            if snapshot.device.video.trusted and snapshot.device.video.aspect_ratio
+            else None
         ),
     ),
     MadvrEnvySensorDescription(
@@ -159,7 +163,9 @@ SENSORS: tuple[MadvrEnvySensorDescription, ...] = (
         translation_key="masking_ratio_decimal",
         icon="mdi:crop",
         value_fn=lambda snapshot: (
-            snapshot.device.masking_ratio.decimal_ratio if snapshot.device.masking_ratio else None
+            snapshot.device.video.masking_ratio.decimal_ratio
+            if snapshot.device.video.trusted and snapshot.device.video.masking_ratio
+            else None
         ),
     ),
 )
