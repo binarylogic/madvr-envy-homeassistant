@@ -30,6 +30,7 @@ class MadvrEnvyCoordinator(DataUpdateCoordinator[MadvrEnvyRuntimeState]):
 
     _BOOTSTRAP_RETRY_INTERVAL_SECONDS = 5.0
     _VIDEO_GEOMETRY_REFRESH_DELAY_SECONDS = 0.75
+    _VIDEO_GEOMETRY_POLL_INTERVAL_SECONDS = 10.0
 
     def __init__(
         self,
@@ -56,6 +57,7 @@ class MadvrEnvyCoordinator(DataUpdateCoordinator[MadvrEnvyRuntimeState]):
         self._bootstrap_retry_task: asyncio.Task[None] | None = None
         self._activation_retry_task: asyncio.Task[None] | None = None
         self._video_geometry_refresh_task: asyncio.Task[None] | None = None
+        self._video_geometry_poll_task: asyncio.Task[None] | None = None
         self._save_task: asyncio.Task[None] | None = None
         self._activation_live_power_sent = False
 
@@ -81,6 +83,7 @@ class MadvrEnvyCoordinator(DataUpdateCoordinator[MadvrEnvyRuntimeState]):
 
         self._started = True
         self._publish()
+        self._schedule_video_geometry_poll()
 
         try:
             await self.client.start()
@@ -110,6 +113,10 @@ class MadvrEnvyCoordinator(DataUpdateCoordinator[MadvrEnvyRuntimeState]):
         if self._video_geometry_refresh_task is not None:
             self._video_geometry_refresh_task.cancel()
             self._video_geometry_refresh_task = None
+
+        if self._video_geometry_poll_task is not None:
+            self._video_geometry_poll_task.cancel()
+            self._video_geometry_poll_task = None
 
         if self._save_task is not None:
             self._save_task.cancel()
@@ -373,6 +380,15 @@ class MadvrEnvyCoordinator(DataUpdateCoordinator[MadvrEnvyRuntimeState]):
             f"{DOMAIN} video geometry refresh",
         )
 
+    def _schedule_video_geometry_poll(self) -> None:
+        """Keep video geometry fresh even when the Envy misses a display-change event."""
+        if self._video_geometry_poll_task is not None and not self._video_geometry_poll_task.done():
+            return
+        self._video_geometry_poll_task = self.hass.async_create_background_task(
+            self._async_poll_video_geometry(),
+            f"{DOMAIN} video geometry poll",
+        )
+
     async def _async_refresh_video_geometry_after_delay(self) -> None:
         """Debounce geometry changes and publish freshly queried aspect/masking state."""
         try:
@@ -386,6 +402,22 @@ class MadvrEnvyCoordinator(DataUpdateCoordinator[MadvrEnvyRuntimeState]):
             return
         except (TimeoutError, envy_exceptions.MadvrEnvyError, OSError) as err:
             self.logger.debug("Video geometry refresh incomplete: %s", err)
+
+    async def _async_poll_video_geometry(self) -> None:
+        """Periodically refresh aspect/masking while the processor is awake."""
+        try:
+            while self._started:
+                await asyncio.sleep(self._VIDEO_GEOMETRY_POLL_INTERVAL_SECONDS)
+                if not self.can_send_live_commands or self._power_state is not PowerState.ON:
+                    continue
+                try:
+                    self._device_snapshot = await self.client.refresh_video_geometry()
+                    self._sync_power_state_from_device()
+                    self._publish()
+                except (TimeoutError, envy_exceptions.MadvrEnvyError, OSError) as err:
+                    self.logger.debug("Video geometry poll incomplete: %s", err)
+        except asyncio.CancelledError:
+            return
 
     async def _async_retry_bootstrap_until_synced(self) -> None:
         """Keep the integration loaded while the device is offline at startup."""

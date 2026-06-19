@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import asyncio
 from dataclasses import replace
 from unittest.mock import patch
 
@@ -69,6 +70,26 @@ async def test_coordinator_refreshes_video_geometry_after_display_changes(hass, 
     mock_envy_client.refresh_video_geometry.assert_awaited_once()
     assert coordinator.data is not None
     assert coordinator.data.device.version == "geometry-refreshed"
+
+    await coordinator.async_shutdown()
+
+
+async def test_coordinator_periodically_refreshes_video_geometry_when_on(hass, mock_envy_client):
+    """Video geometry should recover even when no display-change event is received."""
+    coordinator = MadvrEnvyCoordinator(hass, mock_envy_client, entry_id="test-entry")
+    coordinator._VIDEO_GEOMETRY_POLL_INTERVAL_SECONDS = 0.01
+    refreshed = replace(mock_envy_client.device_snapshot, version="geometry-polled")
+    mock_envy_client.refresh_video_geometry.return_value = refreshed
+
+    await coordinator.async_start()
+    mock_envy_client.refresh_video_geometry.reset_mock()
+
+    await asyncio.sleep(0.03)
+    await hass.async_block_till_done()
+
+    assert mock_envy_client.refresh_video_geometry.await_count >= 1
+    assert coordinator.data is not None
+    assert coordinator.data.device.version == "geometry-polled"
 
     await coordinator.async_shutdown()
 
