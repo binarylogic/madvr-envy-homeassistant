@@ -22,46 +22,50 @@ async def test_platform_setup_entity_counts(hass, mock_envy_client):
     coordinator = MadvrEnvyCoordinator(hass, mock_envy_client, entry_id="test-entry")
     await coordinator.async_start()
 
-    basic_entry = SimpleNamespace(
-        runtime_data=SimpleNamespace(coordinator=coordinator),
-        options={"enable_advanced_entities": False},
-    )
-    full_entry = SimpleNamespace(
-        runtime_data=SimpleNamespace(coordinator=coordinator),
-        options={"enable_advanced_entities": True},
-    )
+    try:
+        basic_entry = SimpleNamespace(
+            runtime_data=SimpleNamespace(coordinator=coordinator),
+            options={"enable_advanced_entities": False},
+        )
+        full_entry = SimpleNamespace(
+            runtime_data=SimpleNamespace(coordinator=coordinator),
+            options={"enable_advanced_entities": True},
+        )
 
-    added_basic: list[object] = []
-    added_full: list[object] = []
+        added_basic: list[object] = []
+        added_full: list[object] = []
 
-    await sensor.async_setup_entry(hass, basic_entry, added_basic.extend)
-    await sensor.async_setup_entry(hass, full_entry, added_full.extend)
-    assert len(added_basic) == len(sensor.SENSORS) - 2
-    assert len(added_full) == len(sensor.SENSORS)
+        await sensor.async_setup_entry(hass, basic_entry, added_basic.extend)
+        await sensor.async_setup_entry(hass, full_entry, added_full.extend)
+        assert len(added_basic) == len(sensor.SENSORS) - 2
+        assert len(added_full) == len(sensor.SENSORS)
 
-    added_buttons_basic: list[object] = []
-    added_buttons_full: list[object] = []
-    await button.async_setup_entry(hass, basic_entry, added_buttons_basic.extend)
-    await button.async_setup_entry(hass, full_entry, added_buttons_full.extend)
-    assert len(added_buttons_basic) < len(added_buttons_full)
+        added_buttons_basic: list[object] = []
+        added_buttons_full: list[object] = []
+        await button.async_setup_entry(hass, basic_entry, added_buttons_basic.extend)
+        await button.async_setup_entry(hass, full_entry, added_buttons_full.extend)
+        assert len(added_buttons_basic) < len(added_buttons_full)
 
-    added_binary: list[object] = []
-    await binary_sensor.async_setup_entry(hass, full_entry, added_binary.extend)
-    assert len(added_binary) == 1
+        added_binary: list[MadvrEnvyBinarySensor] = []
+        await binary_sensor.async_setup_entry(hass, full_entry, added_binary.extend)
+        assert {entity.entity_description.key for entity in added_binary} == {
+            "signal_present",
+            "video_geometry_trusted",
+        }
 
-    added_switch: list[object] = []
-    await switch.async_setup_entry(hass, full_entry, added_switch.extend)
-    assert len(added_switch) == 1
+        added_switch: list[object] = []
+        await switch.async_setup_entry(hass, full_entry, added_switch.extend)
+        assert len(added_switch) == 1
 
-    added_select: list[object] = []
-    await select.async_setup_entry(hass, full_entry, added_select.extend)
-    assert len(added_select) >= 2
+        added_select: list[object] = []
+        await select.async_setup_entry(hass, full_entry, added_select.extend)
+        assert len(added_select) >= 2
 
-    added_remote: list[object] = []
-    await remote.async_setup_entry(hass, full_entry, added_remote.extend)
-    assert len(added_remote) == 1
-
-    await coordinator.async_shutdown()
+        added_remote: list[object] = []
+        await remote.async_setup_entry(hass, full_entry, added_remote.extend)
+        assert len(added_remote) == 1
+    finally:
+        await coordinator.async_shutdown()
 
 
 def test_profile_catalog_active_name_branches():

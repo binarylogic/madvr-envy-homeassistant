@@ -115,6 +115,9 @@
     "binary_sensor": {
       "signal_present": {
         "name": "Signal Present"
+      },
+      "video_geometry_trusted": {
+        "name": "Video Geometry Trusted"
       }
     },
     "switch": {

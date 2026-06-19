@@ -56,7 +56,7 @@ async def test_coordinator_received_message_publishes_device_snapshot(hass, mock
 async def test_coordinator_refreshes_video_geometry_after_display_changes(hass, mock_envy_client):
     """Display change events should re-query aspect and masking telemetry."""
     coordinator = MadvrEnvyCoordinator(hass, mock_envy_client, entry_id="test-entry")
-    coordinator._VIDEO_GEOMETRY_REFRESH_DELAY_SECONDS = 0
+    coordinator.runtime.policy = replace(coordinator.runtime.policy, geometry_debounce=0)
     await coordinator.async_start()
 
     callback = mock_envy_client._test_callbacks["client"]
@@ -64,7 +64,7 @@ async def test_coordinator_refreshes_video_geometry_after_display_changes(hass, 
     mock_envy_client.refresh_video_geometry.return_value = refreshed
 
     callback("received_message", DisplayChangedMessage())
-    await hass.async_block_till_done()
+    await asyncio.sleep(0)
     await hass.async_block_till_done()
 
     mock_envy_client.refresh_video_geometry.assert_awaited_once()
@@ -77,17 +77,17 @@ async def test_coordinator_refreshes_video_geometry_after_display_changes(hass, 
 async def test_coordinator_periodically_refreshes_video_geometry_when_on(hass, mock_envy_client):
     """Video geometry should recover even when no display-change event is received."""
     coordinator = MadvrEnvyCoordinator(hass, mock_envy_client, entry_id="test-entry")
-    coordinator._VIDEO_GEOMETRY_POLL_INTERVAL_SECONDS = 0.01
+    coordinator.runtime.policy = replace(coordinator.runtime.policy, volatile_video_interval=0.01)
     refreshed = replace(mock_envy_client.device_snapshot, version="geometry-polled")
-    mock_envy_client.refresh_video_geometry.return_value = refreshed
+    mock_envy_client.refresh_volatile_video.return_value = refreshed
 
     await coordinator.async_start()
-    mock_envy_client.refresh_video_geometry.reset_mock()
+    mock_envy_client.refresh_volatile_video.reset_mock()
 
     await asyncio.sleep(0.03)
     await hass.async_block_till_done()
 
-    assert mock_envy_client.refresh_video_geometry.await_count >= 1
+    assert mock_envy_client.refresh_volatile_video.await_count >= 1
     assert coordinator.data is not None
     assert coordinator.data.device.version == "geometry-polled"
 
