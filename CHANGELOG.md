@@ -1,5 +1,12 @@
 # Changelog
 
+## [2.0.6](https://github.com/binarylogic/madvr-envy-homeassistant/compare/v2.0.5...v2.0.6) (2026-06-19)
+
+
+### Bug Fixes
+
+* refresh Envy video geometry periodically ([1bf83ff](https://github.com/binarylogic/madvr-envy-homeassistant/commit/1bf83ffb3c05ffe83bc12fd0a27f995cac78f203))
+
 ## [2.0.5](https://github.com/binarylogic/madvr-envy-homeassistant/compare/v2.0.4...v2.0.5) (2026-05-25)
 
 
