@@ -1,5 +1,12 @@
 # Changelog
 
+## [2.1.0](https://github.com/binarylogic/madvr-envy-homeassistant/compare/v2.0.6...v2.1.0) (2026-06-19)
+
+
+### Features
+
+* consume Envy runtime freshness policy ([26a2f07](https://github.com/binarylogic/madvr-envy-homeassistant/commit/26a2f07066f0cb5b14e907d11595a2d2ca3eaa2f))
+
 ## [2.0.6](https://github.com/binarylogic/madvr-envy-homeassistant/compare/v2.0.5...v2.0.6) (2026-06-19)
 
 
