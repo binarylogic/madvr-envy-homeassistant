@@ -1,5 +1,12 @@
 # Changelog
 
+## [2.1.1](https://github.com/binarylogic/madvr-envy-homeassistant/compare/v2.1.0...v2.1.1) (2026-06-24)
+
+
+### Bug Fixes
+
+* keep Envy wake controls available before protocol sync
+
 ## [2.1.0](https://github.com/binarylogic/madvr-envy-homeassistant/compare/v2.0.6...v2.1.0) (2026-06-19)
 
 

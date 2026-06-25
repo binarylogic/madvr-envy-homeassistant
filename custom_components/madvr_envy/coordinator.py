@@ -77,7 +77,7 @@ class MadvrEnvyCoordinator(DataUpdateCoordinator[MadvrEnvyRuntimeState]):
         self._device_snapshot = EnvyDeviceSnapshot()
 
     async def async_start(self) -> None:
-        """Start client and register callbacks once."""
+        """Publish HA state and start protocol bootstrap in the background."""
         if self._started:
             return
 
@@ -88,18 +88,7 @@ class MadvrEnvyCoordinator(DataUpdateCoordinator[MadvrEnvyRuntimeState]):
 
         self._started = True
         self._publish()
-
-        try:
-            await self.runtime.start()
-        except (
-            TimeoutError,
-            envy_exceptions.ConnectionFailedError,
-            envy_exceptions.ConnectionTimeoutError,
-        ):
-            self.logger.warning(
-                "Initial madVR Envy bootstrap failed; keeping integration loaded and retrying in background."
-            )
-            self._schedule_bootstrap_retry()
+        self._schedule_bootstrap_retry()
 
     async def async_shutdown(self) -> None:
         """Stop runtime and clean callbacks."""
@@ -205,19 +194,22 @@ class MadvrEnvyCoordinator(DataUpdateCoordinator[MadvrEnvyRuntimeState]):
 
     async def _async_wake_once(self) -> bool:
         """Run one explicit wake pass without surfacing expected sleep/off races."""
+        wol_sent = False
         if self._wake_mode is not WakeMode.NONE and self._mac_address is not None:
             await async_send_magic_packet(self._mac_address, self.client.host)
+            wol_sent = True
 
         if self.can_send_live_commands:
             await self._async_publish_current_state()
             if self._power_state is PowerState.ON:
                 return True
-            await self._async_send_power_on_over_live_transport()
+            if not wol_sent:
+                await self._async_send_power_on_over_live_transport()
             if await self._async_connect_and_publish_until_synced():
                 return self._power_state is PowerState.ON
             return False
 
-        if await self._async_send_power_on_over_live_transport():
+        if not wol_sent and await self._async_send_power_on_over_live_transport():
             if await self._async_connect_and_publish_until_synced():
                 return self._power_state is PowerState.ON
             return False
@@ -225,7 +217,7 @@ class MadvrEnvyCoordinator(DataUpdateCoordinator[MadvrEnvyRuntimeState]):
         if await self._async_connect_and_publish_until_synced():
             if self._power_state is PowerState.ON:
                 return True
-            if self.can_send_live_commands:
+            if self.can_send_live_commands and not wol_sent:
                 await self._async_send_power_on_over_live_transport()
                 if await self._async_connect_and_publish_until_synced():
                     return self._power_state is PowerState.ON

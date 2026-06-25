@@ -239,8 +239,8 @@ async def test_coordinator_ensure_on_does_not_toggle_when_already_on(hass, mock_
     await coordinator.async_shutdown()
 
 
-async def test_coordinator_ensure_on_sends_power_when_reachable_but_asleep(hass, mock_envy_client):
-    """Activation intent should issue live POWER after reconnecting to a sleeping Envy."""
+async def test_coordinator_ensure_on_uses_wol_without_power_toggle(hass, mock_envy_client):
+    """Activation with a wake MAC must not press the toggle-style POWER command."""
     asleep_snapshot = replace(
         mock_envy_client.device_snapshot,
         power_state=PowerState.STANDBY,
@@ -267,15 +267,42 @@ async def test_coordinator_ensure_on_sends_power_when_reachable_but_asleep(hass,
         await coordinator.async_ensure_on()
 
     mock_wol.assert_any_await("00:11:22:33:44:55", "192.168.1.100")
-    mock_envy_client.power_on.assert_any_await(wait_for_ack=False)
+    mock_envy_client.power_on.assert_not_awaited()
 
     await coordinator.async_shutdown()
 
 
-async def test_coordinator_ensure_on_pulses_power_when_tcp_connects_before_sync(
+async def test_coordinator_ensure_on_allows_single_live_power_without_wol(hass, mock_envy_client):
+    """Activation without a wake MAC may fall back to one live POWER pulse."""
+    asleep_snapshot = replace(
+        mock_envy_client.device_snapshot,
+        power_state=PowerState.STANDBY,
+    )
+    mock_envy_client.device_snapshot = asleep_snapshot
+    coordinator = MadvrEnvyCoordinator(
+        hass,
+        mock_envy_client,
+        entry_id="test-entry",
+    )
+    await coordinator.async_start()
+    coordinator._power_state = PowerState.STANDBY
+    mock_envy_client.refresh_device.return_value = asleep_snapshot
+
+    try:
+        with patch("custom_components.madvr_envy.coordinator.async_send_magic_packet") as mock_wol:
+            await coordinator.async_ensure_on()
+
+        mock_wol.assert_not_awaited()
+        mock_envy_client.power_on.assert_awaited_once_with(wait_for_ack=False)
+
+    finally:
+        await coordinator.async_shutdown()
+
+
+async def test_coordinator_ensure_on_retries_wol_when_tcp_connects_before_sync(
     hass, mock_envy_client
 ):
-    """Activation should not require full protocol sync before sending POWER."""
+    """Activation should keep using WoL when TCP connects before full sync."""
     coordinator = MadvrEnvyCoordinator(
         hass,
         mock_envy_client,
@@ -291,15 +318,15 @@ async def test_coordinator_ensure_on_pulses_power_when_tcp_connects_before_sync(
         await coordinator.async_ensure_on()
 
     mock_wol.assert_any_await("00:11:22:33:44:55", "192.168.1.100")
-    mock_envy_client.power_on.assert_any_await(wait_for_ack=False)
+    mock_envy_client.power_on.assert_not_awaited()
 
     await coordinator.async_shutdown()
 
 
-async def test_coordinator_ensure_on_schedules_retry_when_live_power_races_offline(
+async def test_coordinator_ensure_on_schedules_retry_when_wol_device_stays_offline(
     hass, mock_envy_client
 ):
-    """Activation should not fail the service call when a stale transport drops."""
+    """Activation should not fail the service call when a WoL device stays offline."""
     coordinator = MadvrEnvyCoordinator(
         hass,
         mock_envy_client,
@@ -312,7 +339,6 @@ async def test_coordinator_ensure_on_schedules_retry_when_live_power_races_offli
         power_state=PowerState.OFF,
     )
     mock_envy_client.refresh_device.return_value = offline_snapshot
-    mock_envy_client.power_on.side_effect = envy_exceptions.NotConnectedError()
     mock_envy_client.wait_synced.side_effect = TimeoutError()
     coordinator._power_state = PowerState.OFF
 
@@ -320,7 +346,7 @@ async def test_coordinator_ensure_on_schedules_retry_when_live_power_races_offli
         await coordinator.async_ensure_on()
 
     mock_wol.assert_any_await("00:11:22:33:44:55", "192.168.1.100")
-    mock_envy_client.power_on.assert_awaited()
+    mock_envy_client.power_on.assert_not_awaited()
 
     await coordinator.async_shutdown()
 

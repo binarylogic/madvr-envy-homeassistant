@@ -112,7 +112,7 @@ async def test_power_mode_select_calls_expected_commands(hass, mock_envy_client)
 
     mock_envy_client.standby.assert_awaited_once()
     mock_envy_client.power_off.assert_awaited_once()
-    mock_envy_client.power_on.assert_awaited_once_with(wait_for_ack=False)
+    mock_envy_client.power_on.assert_not_awaited()
 
     await coordinator.async_shutdown()
 
