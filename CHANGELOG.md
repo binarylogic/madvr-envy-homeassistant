@@ -1,5 +1,12 @@
 # Changelog
 
+## [2.1.2](https://github.com/binarylogic/madvr-envy-homeassistant/compare/v2.1.1...v2.1.2) (2026-09-16)
+
+
+### Bug Fixes
+
+* preserve wake feedback across activity cancellation ([#47](https://github.com/binarylogic/madvr-envy-homeassistant/issues/47)) ([e2c83b5](https://github.com/binarylogic/madvr-envy-homeassistant/commit/e2c83b586ad605d5c3089390cb2c41e4f06ffba5))
+
 ## [2.1.1](https://github.com/binarylogic/madvr-envy-homeassistant/compare/v2.1.0...v2.1.1) (2026-06-24)
 
 
