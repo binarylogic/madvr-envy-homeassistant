@@ -1,4 +1,7 @@
-"""Test coordinator behavior for madVR Envy."""
+"""Test coordinator behavior for madVR Envy.
+
+Yield after async_start so its mock bootstrap runs on eager and non-eager loops.
+"""
 
 from __future__ import annotations
 
@@ -6,6 +9,7 @@ import asyncio
 from dataclasses import replace
 from unittest.mock import patch
 
+import pytest
 from madvr_envy import exceptions as envy_exceptions
 from madvr_envy.protocol import DisplayChangedMessage
 
@@ -20,6 +24,7 @@ async def test_coordinator_start_stop(hass, mock_envy_client):
     )
 
     await coordinator.async_start()
+    await asyncio.sleep(0)
 
     mock_envy_client.register_callback.assert_called_once()
     mock_envy_client.start.assert_called_once()
@@ -41,6 +46,7 @@ async def test_coordinator_received_message_publishes_device_snapshot(hass, mock
     """Test client push messages publish the current semantic snapshot."""
     coordinator = MadvrEnvyCoordinator(hass, mock_envy_client, entry_id="test-entry")
     await coordinator.async_start()
+    await asyncio.sleep(0)
 
     callback = mock_envy_client._test_callbacks["client"]
     mock_envy_client.device_snapshot = replace(mock_envy_client.device_snapshot, version="1.0.1")
@@ -58,6 +64,7 @@ async def test_coordinator_refreshes_video_geometry_after_display_changes(hass, 
     coordinator = MadvrEnvyCoordinator(hass, mock_envy_client, entry_id="test-entry")
     coordinator.runtime.policy = replace(coordinator.runtime.policy, geometry_debounce=0)
     await coordinator.async_start()
+    await asyncio.sleep(0)
 
     callback = mock_envy_client._test_callbacks["client"]
     refreshed = replace(mock_envy_client.device_snapshot, version="geometry-refreshed")
@@ -82,6 +89,7 @@ async def test_coordinator_periodically_refreshes_video_geometry_when_on(hass, m
     mock_envy_client.refresh_volatile_video.return_value = refreshed
 
     await coordinator.async_start()
+    await asyncio.sleep(0)
     mock_envy_client.refresh_volatile_video.reset_mock()
 
     await asyncio.sleep(0.03)
@@ -98,6 +106,7 @@ async def test_coordinator_marks_unavailable_on_disconnect(hass, mock_envy_clien
     """Test disconnect events force availability false."""
     coordinator = MadvrEnvyCoordinator(hass, mock_envy_client, entry_id="test-entry")
     await coordinator.async_start()
+    await asyncio.sleep(0)
 
     client_callback = mock_envy_client._test_callbacks["client"]
     client_callback("disconnected", None)
@@ -117,6 +126,7 @@ async def test_coordinator_prime_failure_is_non_fatal(hass, mock_envy_client):
     coordinator = MadvrEnvyCoordinator(hass, mock_envy_client, entry_id="test-entry")
 
     await coordinator.async_start()
+    await asyncio.sleep(0)
     assert coordinator.data is not None
     assert coordinator.data.can_send_live_commands is True
 
@@ -128,6 +138,7 @@ async def test_coordinator_standby_treats_disconnect_as_success(hass, mock_envy_
     mock_envy_client.standby.side_effect = envy_exceptions.NotConnectedError()
     coordinator = MadvrEnvyCoordinator(hass, mock_envy_client, entry_id="test-entry")
     await coordinator.async_start()
+    await asyncio.sleep(0)
 
     await coordinator.async_standby()
 
@@ -145,6 +156,7 @@ async def test_coordinator_power_off_treats_disconnect_as_success(hass, mock_env
     mock_envy_client.power_off.side_effect = TimeoutError()
     coordinator = MadvrEnvyCoordinator(hass, mock_envy_client, entry_id="test-entry")
     await coordinator.async_start()
+    await asyncio.sleep(0)
 
     await coordinator.async_power_off()
 
@@ -164,6 +176,7 @@ async def test_coordinator_power_off_tolerates_client_stop_race(hass, mock_envy_
     )
     coordinator = MadvrEnvyCoordinator(hass, mock_envy_client, entry_id="test-entry")
     await coordinator.async_start()
+    await asyncio.sleep(0)
 
     await coordinator.async_power_off()
 
@@ -180,6 +193,7 @@ async def test_coordinator_ignores_stale_on_payload_while_disconnected(hass, moc
     """Sleep transitions should not be overwritten by stale connected-state payloads."""
     coordinator = MadvrEnvyCoordinator(hass, mock_envy_client, entry_id="test-entry")
     await coordinator.async_start()
+    await asyncio.sleep(0)
 
     await coordinator.async_standby()
     assert coordinator.data is not None
@@ -205,6 +219,7 @@ async def test_coordinator_ensure_on_reenables_reconnect(hass, mock_envy_client)
         configured_mac_address="00:11:22:33:44:55",
     )
     await coordinator.async_start()
+    await asyncio.sleep(0)
 
     await coordinator.async_standby()
     assert mock_envy_client.auto_reconnect is False
@@ -229,6 +244,7 @@ async def test_coordinator_ensure_on_does_not_toggle_when_already_on(hass, mock_
         configured_mac_address="00:11:22:33:44:55",
     )
     await coordinator.async_start()
+    await asyncio.sleep(0)
 
     with patch("custom_components.madvr_envy.coordinator.async_send_magic_packet") as mock_wol:
         await coordinator.async_ensure_on()
@@ -262,6 +278,7 @@ async def test_coordinator_ensure_on_uses_wol_without_power_toggle(hass, mock_en
         configured_mac_address="00:11:22:33:44:55",
     )
     await coordinator.async_start()
+    await asyncio.sleep(0)
 
     with patch("custom_components.madvr_envy.coordinator.async_send_magic_packet") as mock_wol:
         await coordinator.async_ensure_on()
@@ -285,6 +302,7 @@ async def test_coordinator_ensure_on_allows_single_live_power_without_wol(hass, 
         entry_id="test-entry",
     )
     await coordinator.async_start()
+    await asyncio.sleep(0)
     coordinator._power_state = PowerState.STANDBY
     mock_envy_client.refresh_device.return_value = asleep_snapshot
 
@@ -310,6 +328,7 @@ async def test_coordinator_ensure_on_retries_wol_when_tcp_connects_before_sync(
         configured_mac_address="00:11:22:33:44:55",
     )
     await coordinator.async_start()
+    await asyncio.sleep(0)
     await coordinator.async_standby()
 
     mock_envy_client.wait_synced.side_effect = TimeoutError()
@@ -334,6 +353,7 @@ async def test_coordinator_ensure_on_schedules_retry_when_wol_device_stays_offli
         configured_mac_address="00:11:22:33:44:55",
     )
     await coordinator.async_start()
+    await asyncio.sleep(0)
     offline_snapshot = replace(
         mock_envy_client.device_snapshot,
         power_state=PowerState.OFF,
@@ -360,6 +380,7 @@ async def test_coordinator_retries_live_power_after_failed_pulse(hass, mock_envy
         configured_mac_address="00:11:22:33:44:55",
     )
     await coordinator.async_start()
+    await asyncio.sleep(0)
     mock_envy_client.power_on.side_effect = [
         envy_exceptions.NotConnectedError(),
         None,
@@ -383,6 +404,7 @@ async def test_coordinator_live_power_pulse_is_one_shot_per_activation(hass, moc
         configured_mac_address="00:11:22:33:44:55",
     )
     await coordinator.async_start()
+    await asyncio.sleep(0)
     coordinator._activation_live_power_sent = False
 
     assert await coordinator._async_send_power_on_over_live_transport() is True
@@ -402,6 +424,7 @@ async def test_coordinator_power_on_uses_live_transport_only(hass, mock_envy_cli
         configured_mac_address="00:11:22:33:44:55",
     )
     await coordinator.async_start()
+    await asyncio.sleep(0)
 
     with patch("custom_components.madvr_envy.coordinator.async_send_magic_packet") as mock_wol:
         await coordinator.async_power_on()
@@ -421,6 +444,7 @@ async def test_coordinator_does_not_restore_on_while_disconnected_startup(hass, 
     )
 
     await coordinator.async_start()
+    await asyncio.sleep(0)
 
     assert coordinator.data is not None
     assert coordinator.data.connection_state.value == "disconnected"
@@ -438,6 +462,7 @@ async def test_coordinator_ignores_runtime_mac_updates(hass, mock_envy_client):
         configured_mac_address="00:11:22:33:44:55",
     )
     await coordinator.async_start()
+    await asyncio.sleep(0)
 
     callback = mock_envy_client._test_callbacks["client"]
     callback("received_message", None)
@@ -446,4 +471,59 @@ async def test_coordinator_ignores_runtime_mac_updates(hass, mock_envy_client):
     assert coordinator.data is not None
     assert coordinator.data.mac_address == "00:11:22:33:44:55"
 
+    await coordinator.async_shutdown()
+
+
+async def test_cancelled_wake_never_reuses_standby_feedback(hass, mock_envy_client):
+    """A cancelled caller must not make an already accepted wake look asleep."""
+    coordinator = MadvrEnvyCoordinator(hass, mock_envy_client, entry_id="test-entry")
+    await coordinator.async_start()
+    await asyncio.sleep(0)
+    coordinator._power_state = PowerState.STANDBY
+    entered = asyncio.Event()
+
+    async def pending_wake():
+        entered.set()
+        await asyncio.Future()
+
+    with (
+        patch.object(coordinator, "_async_wake_once", side_effect=pending_wake),
+        patch.object(coordinator, "_schedule_activation_retry") as retry,
+    ):
+        task = asyncio.create_task(coordinator.async_ensure_on())
+        await asyncio.wait_for(entered.wait(), timeout=1)
+        assert coordinator.data.power_state is PowerState.UNKNOWN
+        coordinator._handle_runtime_snapshot(
+            replace(mock_envy_client.device_snapshot, power_state=PowerState.STANDBY)
+        )
+        assert coordinator.data.power_state is PowerState.UNKNOWN
+        task.cancel()
+        with pytest.raises(asyncio.CancelledError):
+            await task
+        retry.assert_called_once()
+        assert coordinator.data.power_state is PowerState.UNKNOWN
+
+    coordinator._handle_runtime_snapshot(
+        replace(mock_envy_client.device_snapshot, power_state=PowerState.ON)
+    )
+    assert coordinator.data.power_state is PowerState.ON
+    assert not coordinator._wake_requested
+    await coordinator.async_shutdown()
+
+
+async def test_standby_cancels_pending_activation_retry(hass, mock_envy_client):
+    """No old wake task may send another wake after an accepted standby."""
+    coordinator = MadvrEnvyCoordinator(hass, mock_envy_client, entry_id="test-entry")
+    await coordinator.async_start()
+    await asyncio.sleep(0)
+    pending = asyncio.create_task(asyncio.sleep(3600))
+    coordinator._activation_retry_task = pending
+    coordinator._wake_requested = True
+    await coordinator.async_standby()
+    await asyncio.sleep(0)
+    assert pending.cancelled()
+    assert coordinator._activation_retry_task is None
+    assert not coordinator._wake_requested
+    assert coordinator.data.power_state is PowerState.STANDBY
+    assert not mock_envy_client.auto_reconnect
     await coordinator.async_shutdown()

@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import asyncio
 from dataclasses import replace
 from unittest.mock import AsyncMock, patch
 
@@ -24,6 +25,7 @@ async def test_sensor_values(hass, mock_envy_client):
     """Test sensor values are sourced from coordinator data."""
     coordinator = MadvrEnvyCoordinator(hass, mock_envy_client, entry_id="test-entry")
     await coordinator.async_start()
+    await asyncio.sleep(0)
 
     power_sensor = MadvrEnvySensor(
         coordinator, next(item for item in SENSORS if item.key == "power_state")
@@ -50,6 +52,7 @@ async def test_binary_sensor_value(hass, mock_envy_client):
     """Test binary sensor state."""
     coordinator = MadvrEnvyCoordinator(hass, mock_envy_client, entry_id="test-entry")
     await coordinator.async_start()
+    await asyncio.sleep(0)
 
     entity = MadvrEnvyBinarySensor(coordinator, BINARY_SENSORS[0])
     assert entity.is_on is True
@@ -61,6 +64,7 @@ async def test_tone_map_switch_calls_client(hass, mock_envy_client):
     """Test tone map switch command execution."""
     coordinator = MadvrEnvyCoordinator(hass, mock_envy_client, entry_id="test-entry")
     await coordinator.async_start()
+    await asyncio.sleep(0)
 
     entity = MadvrEnvyToneMapSwitch(coordinator)
     assert entity.available is True
@@ -79,6 +83,7 @@ async def test_button_calls_client(hass, mock_envy_client):
     """Test button actions call client methods."""
     coordinator = MadvrEnvyCoordinator(hass, mock_envy_client, entry_id="test-entry")
     await coordinator.async_start()
+    await asyncio.sleep(0)
 
     restart_desc = next(item for item in BUTTONS if item.key == "restart")
     entity = MadvrEnvyButton(coordinator, restart_desc)
@@ -98,6 +103,7 @@ async def test_power_mode_select_calls_expected_commands(hass, mock_envy_client)
         configured_mac_address="00:11:22:33:44:55",
     )
     await coordinator.async_start()
+    await asyncio.sleep(0)
 
     entity = MadvrEnvyPowerModeSelect(coordinator)
     assert entity.current_option == "on"
@@ -121,6 +127,7 @@ async def test_power_sensor_stays_explicit_through_disconnect(hass, mock_envy_cl
     """Test the lifecycle sensor stays explicit through standby/off disconnects."""
     coordinator = MadvrEnvyCoordinator(hass, mock_envy_client, entry_id="test-entry")
     await coordinator.async_start()
+    await asyncio.sleep(0)
 
     await coordinator.async_standby()
     mock_envy_client._test_callbacks["client"]("disconnected", None)
@@ -148,6 +155,7 @@ async def test_power_on_uses_wol_when_disconnected(hass, mock_envy_client):
         wake_mode=WakeMode.AUTO,
     )
     await coordinator.async_start()
+    await asyncio.sleep(0)
     try:
         mock_envy_client._test_callbacks["client"]("disconnected", None)
 
@@ -174,6 +182,7 @@ async def test_only_power_on_remains_available_with_wol_when_disconnected(hass, 
         wake_mode=WakeMode.AUTO,
     )
     await coordinator.async_start()
+    await asyncio.sleep(0)
     mock_envy_client._test_callbacks["client"]("disconnected", None)
 
     power_on = MadvrEnvyButton(
@@ -206,6 +215,7 @@ async def test_power_mode_select_reflects_restored_standby(hass, mock_envy_clien
         configured_mac_address="00:11:22:33:44:55",
     )
     await coordinator.async_start()
+    await asyncio.sleep(0)
     coordinator._power_state = PowerState.STANDBY
     coordinator._publish()
     mock_envy_client._test_callbacks["client"]("disconnected", None)
@@ -228,6 +238,7 @@ async def test_power_mode_select_only_wakes_when_disconnected(hass, mock_envy_cl
         wake_mode=WakeMode.AUTO,
     )
     await coordinator.async_start()
+    await asyncio.sleep(0)
     await coordinator.async_standby()
     mock_envy_client._test_callbacks["client"]("disconnected", None)
 
@@ -249,6 +260,7 @@ async def test_profile_group_select(hass, mock_envy_client):
     """Test profile-group scoped select entity behavior."""
     coordinator = MadvrEnvyCoordinator(hass, mock_envy_client, entry_id="test-entry")
     await coordinator.async_start()
+    await asyncio.sleep(0)
 
     entity = MadvrEnvyProfileGroupSelect(coordinator, "1")
     assert "Cinema: Day" in entity.options
@@ -264,6 +276,7 @@ async def test_remote_send_command_and_actions(hass, mock_envy_client):
     """Test remote entity key and action command dispatch."""
     coordinator = MadvrEnvyCoordinator(hass, mock_envy_client, entry_id="test-entry")
     await coordinator.async_start()
+    await asyncio.sleep(0)
 
     entity = MadvrEnvyRemote(coordinator)
     assert entity.is_on is True
@@ -285,6 +298,7 @@ async def test_profile_group_select_name_fallback(hass, mock_envy_client):
     """Test profile-group select naming fallback behavior."""
     coordinator = MadvrEnvyCoordinator(hass, mock_envy_client, entry_id="test-entry")
     await coordinator.async_start()
+    await asyncio.sleep(0)
     coordinator._profile_groups = {}
     coordinator._publish()
     entity = MadvrEnvyProfileGroupSelect(coordinator, "custom")
@@ -296,6 +310,7 @@ async def test_profile_select_unavailable_without_options(hass, mock_envy_client
     """Test profile selects do not expose empty selectable controls."""
     coordinator = MadvrEnvyCoordinator(hass, mock_envy_client, entry_id="test-entry")
     await coordinator.async_start()
+    await asyncio.sleep(0)
     coordinator._profile_groups = {}
     coordinator._device_snapshot = replace(
         coordinator._device_snapshot,

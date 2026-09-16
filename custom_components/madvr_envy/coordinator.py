@@ -69,6 +69,7 @@ class MadvrEnvyCoordinator(DataUpdateCoordinator[MadvrEnvyRuntimeState]):
         self._activation_retry_task: asyncio.Task[None] | None = None
         self._save_task: asyncio.Task[None] | None = None
         self._activation_live_power_sent = False
+        self._wake_requested = False
 
         self._connection_state = ConnectionState.DISCONNECTED
         self._power_state = PowerState.UNKNOWN
@@ -92,6 +93,8 @@ class MadvrEnvyCoordinator(DataUpdateCoordinator[MadvrEnvyRuntimeState]):
 
     async def async_shutdown(self) -> None:
         """Stop runtime and clean callbacks."""
+        self._started = False
+        self._wake_requested = False
         if self._bootstrap_retry_task is not None:
             self._bootstrap_retry_task.cancel()
             self._bootstrap_retry_task = None
@@ -177,6 +180,11 @@ class MadvrEnvyCoordinator(DataUpdateCoordinator[MadvrEnvyRuntimeState]):
         self.client.auto_reconnect = True
         if self._power_state is PowerState.ON:
             return
+        # A wake packet cannot be retracted when its caller is cancelled. The
+        # previous standby snapshot is no longer current completion evidence.
+        self._wake_requested = True
+        self._power_state = PowerState.UNKNOWN
+        self._publish()
         if self._activation_retry_task is not None and not self._activation_retry_task.done():
             if self._wake_mode is not WakeMode.NONE and self._mac_address is not None:
                 await async_send_magic_packet(self._mac_address, self.client.host)
@@ -184,8 +192,15 @@ class MadvrEnvyCoordinator(DataUpdateCoordinator[MadvrEnvyRuntimeState]):
 
         self._activation_live_power_sent = False
 
-        if await self._async_wake_once():
-            return
+        try:
+            if await self._async_wake_once():
+                return
+        except asyncio.CancelledError:
+            # Continue observing the accepted physical wake. A subsequent
+            # standby request can act once transport becomes ready.
+            if self._started:
+                self._schedule_activation_retry()
+            raise
 
         if not self.can_wake:
             raise envy_exceptions.NotConnectedError("No wake path configured")
@@ -277,6 +292,12 @@ class MadvrEnvyCoordinator(DataUpdateCoordinator[MadvrEnvyRuntimeState]):
 
     def _sync_power_state_from_device(self) -> None:
         power_state = self._device_snapshot.power_state
+        if self._wake_requested:
+            if self._connection_state is ConnectionState.CONNECTED and power_state is PowerState.ON:
+                self._wake_requested = False
+            else:
+                self._power_state = PowerState.UNKNOWN
+                return
         if power_state is not PowerState.UNKNOWN and (
             self._connection_state is ConnectionState.CONNECTED
             or power_state in (PowerState.STANDBY, PowerState.OFF)
@@ -426,6 +447,10 @@ class MadvrEnvyCoordinator(DataUpdateCoordinator[MadvrEnvyRuntimeState]):
         protocol_message,
     ) -> None:
         """Apply a sleep/power-off transition without surfacing expected disconnects."""
+        self._wake_requested = False
+        if self._activation_retry_task is not None:
+            self._activation_retry_task.cancel()
+            self._activation_retry_task = None
         self.client.auto_reconnect = False
         try:
             await command()
