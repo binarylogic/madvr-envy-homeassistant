@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import asyncio
 from types import SimpleNamespace
 
 import pytest
@@ -21,6 +22,7 @@ async def test_platform_setup_entity_counts(hass, mock_envy_client):
     """Test platform setup entity creation and advanced filtering."""
     coordinator = MadvrEnvyCoordinator(hass, mock_envy_client, entry_id="test-entry")
     await coordinator.async_start()
+    await asyncio.sleep(0)
 
     try:
         basic_entry = SimpleNamespace(
@@ -99,6 +101,7 @@ async def test_entity_execute_wraps_command_errors(hass, mock_envy_client):
     """Test command errors are translated to HomeAssistantError."""
     coordinator = MadvrEnvyCoordinator(hass, mock_envy_client, entry_id="test-entry")
     await coordinator.async_start()
+    await asyncio.sleep(0)
 
     entity = _DummyEntity(coordinator)
 
@@ -115,6 +118,7 @@ async def test_binary_sensor_returns_unknown_during_expected_power_down(hass, mo
     """Test secondary binary sensors degrade to unknown during standby/off."""
     coordinator = MadvrEnvyCoordinator(hass, mock_envy_client, entry_id="test-entry")
     await coordinator.async_start()
+    await asyncio.sleep(0)
     await coordinator.async_standby()
 
     entity = MadvrEnvyBinarySensor(coordinator, BINARY_SENSORS[0])
@@ -127,6 +131,7 @@ async def test_select_setup_restores_profile_groups_from_entity_registry(hass, m
     """Test offline startup restores profile-group entities from the registry."""
     coordinator = MadvrEnvyCoordinator(hass, mock_envy_client, entry_id="test-entry")
     await coordinator.async_start()
+    await asyncio.sleep(0)
     coordinator._profile_groups = {}
     coordinator._publish()
 
