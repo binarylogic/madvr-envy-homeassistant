@@ -6,6 +6,7 @@ import asyncio
 from dataclasses import replace
 from unittest.mock import patch
 
+import pytest
 from madvr_envy import exceptions as envy_exceptions
 from madvr_envy.protocol import DisplayChangedMessage
 
@@ -446,4 +447,57 @@ async def test_coordinator_ignores_runtime_mac_updates(hass, mock_envy_client):
     assert coordinator.data is not None
     assert coordinator.data.mac_address == "00:11:22:33:44:55"
 
+    await coordinator.async_shutdown()
+
+
+async def test_cancelled_wake_never_reuses_standby_feedback(hass, mock_envy_client):
+    """A cancelled caller must not make an already accepted wake look asleep."""
+    coordinator = MadvrEnvyCoordinator(hass, mock_envy_client, entry_id="test-entry")
+    await coordinator.async_start()
+    coordinator._power_state = PowerState.STANDBY
+    entered = asyncio.Event()
+
+    async def pending_wake():
+        entered.set()
+        await asyncio.Future()
+
+    with (
+        patch.object(coordinator, "_async_wake_once", side_effect=pending_wake),
+        patch.object(coordinator, "_schedule_activation_retry") as retry,
+    ):
+        task = asyncio.create_task(coordinator.async_ensure_on())
+        await entered.wait()
+        assert coordinator.data.power_state is PowerState.UNKNOWN
+        coordinator._handle_runtime_snapshot(
+            replace(mock_envy_client.device_snapshot, power_state=PowerState.STANDBY)
+        )
+        assert coordinator.data.power_state is PowerState.UNKNOWN
+        task.cancel()
+        with pytest.raises(asyncio.CancelledError):
+            await task
+        retry.assert_called_once()
+        assert coordinator.data.power_state is PowerState.UNKNOWN
+
+    coordinator._handle_runtime_snapshot(
+        replace(mock_envy_client.device_snapshot, power_state=PowerState.ON)
+    )
+    assert coordinator.data.power_state is PowerState.ON
+    assert not coordinator._wake_requested
+    await coordinator.async_shutdown()
+
+
+async def test_standby_cancels_pending_activation_retry(hass, mock_envy_client):
+    """No old wake task may send another wake after an accepted standby."""
+    coordinator = MadvrEnvyCoordinator(hass, mock_envy_client, entry_id="test-entry")
+    await coordinator.async_start()
+    pending = asyncio.create_task(asyncio.sleep(3600))
+    coordinator._activation_retry_task = pending
+    coordinator._wake_requested = True
+    await coordinator.async_standby()
+    await asyncio.sleep(0)
+    assert pending.cancelled()
+    assert coordinator._activation_retry_task is None
+    assert not coordinator._wake_requested
+    assert coordinator.data.power_state is PowerState.STANDBY
+    assert not mock_envy_client.auto_reconnect
     await coordinator.async_shutdown()
